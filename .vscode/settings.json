@@ -1,0 +1,12 @@
+{
+    "cSpell.words": [
+        "cdylib",
+        "cglue",
+        "downcasting",
+        "hasher",
+        "iface",
+        "ifmac",
+        "libafb"
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
+}

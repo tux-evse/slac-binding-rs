@@ -1,0 +1,15 @@
+{
+  "name": "afb-rust",
+  "no-ldpaths": true,
+  "port": 1234,
+  "alias": ["/devtools:/usr/share/afb-ui-devtools/binder"],
+  "monitoring": true,
+
+  "binding": [
+    {
+        "uid": "rust-api",
+        "path": "${CARGO_TARGET_DIR}debug/libafb_slac.so",
+        "info": "RUST Slac ISO15118-3"
+    }
+  ]
+}

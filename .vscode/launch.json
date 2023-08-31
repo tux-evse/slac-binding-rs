@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Native 'afb-slac'",
+            "type": "lldb",
+            "preLaunchTask": "slac-native-build",
+            "request": "launch",
+            "program": "afb-binder",
+            "env": {
+                "LD_LIBRARY_PATH": "/usr/local/lib64"
+            },
+            "args": [
+                "-vvv","--monitoring",
+                "--trap-faults=0",
+                "--config=afb-binding/etc/binding-test.json",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        }
+    ]
+}

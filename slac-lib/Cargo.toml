@@ -1,0 +1,22 @@
+[package]
+name = "lib_slac"
+version = "0.0.1"
+edition = "2021"
+authors = ["Fulup Le Foll <fulup@iot.bzh>"]
+publish = false
+build = "capi/build.rs"
+
+[dependencies]
+sha2={ version= "0"}
+lib_libafb = {path= "../../../Rust/afb-librust/libafb"}
+
+[build-dependencies]
+bindgen    = ">=0.6"
+cc = "1"
+
+[lib]
+name = "libslac"
+crate-type = ["lib"]
+path = "src/lib.rs"
+
+

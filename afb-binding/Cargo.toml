@@ -1,0 +1,17 @@
+[package]
+name = "slac-binding"
+version = "0.0.1"
+edition = "2021"
+authors = ["Fulup Le Foll <fulup@iot.bzh>"]
+publish = false
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json={ version= "1.0"}
+lib_slac= {path ="../slac-lib"}
+lib_libafb = {path= "../../../Rust/afb-librust/libafb"}
+
+[lib]
+name = "afb_slac"
+crate-type = ["cdylib"]
+path = "src/libso.rs"
