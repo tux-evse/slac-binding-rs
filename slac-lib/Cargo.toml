@@ -8,7 +8,7 @@ build = "capi/build.rs"
 
 [dependencies]
 sha2={ version= "0"}
-lib_libafb = {path= "../../../Rust/afb-librust/libafb"}
+#lib_libafb = {path= "../../../Rust/afb-librust/libafb"}
 
 [build-dependencies]
 bindgen    = ">=0.6"
