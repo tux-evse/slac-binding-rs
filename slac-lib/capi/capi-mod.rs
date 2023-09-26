@@ -21,6 +21,7 @@ use std::fmt;
 use std::mem;
 
 use libafb::prelude::AfbError;
+pub type cchar = ::std::os::raw::c_char;
 
 const MAX_ERROR_LEN: usize = 256;
 pub mod cglue {
@@ -65,11 +66,11 @@ pub fn get_perror() -> String {
     unsafe {
         cglue::strerror_r(
             *cglue::__errno_location(),
-            &mut buffer as *mut i8,
+            &mut buffer as *mut cchar,
             MAX_ERROR_LEN,
         )
     };
-    let cstring = unsafe { CStr::from_ptr(&mut buffer as *const i8) };
+    let cstring = unsafe { CStr::from_ptr(&mut buffer as *const cchar) };
     let slice: &str = cstring.to_str().unwrap();
     slice.to_owned()
 }
@@ -117,7 +118,7 @@ impl SockRaw {
                 if idx == iname.len() {
                     break;
                 };
-                ifreq.ifr_ifrn.ifrn_name[idx] = iname[idx] as i8;
+                ifreq.ifr_ifrn.ifrn_name[idx] = iname[idx] as cchar;
             }
         }
 
@@ -225,7 +226,7 @@ impl GetTime {
         };
         let time = unsafe { cglue::time(0 as *mut cglue::time_t) };
         let locale = unsafe { cglue::localtime(&time) };
-        let mut buffer = [0_i8; 64];
+        let mut buffer = [0_cchar; 64];
         unsafe { cglue::strftime(buffer.as_mut_ptr(), buffer.len(), fmt.as_ptr(), locale) };
         let cstring = unsafe { CStr::from_ptr(buffer.as_ptr()) };
         let slice = match cstring.to_str() {
