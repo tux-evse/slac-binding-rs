@@ -23,7 +23,7 @@
  *  static values and documentation taken from Switch PySlac code
  */
 
-use libafb::prelude::AfbError;
+use afbv4::prelude::AfbError;
 
 
 //  [V2G3-M06-05]- In case NO communication could be established with a

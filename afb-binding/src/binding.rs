@@ -10,7 +10,7 @@
  *
  */
 
-use libafb::prelude::*;
+use afbv4::prelude::*;
 use libslac::prelude::*;
 use crate::prelude::*;
 
@@ -130,5 +130,5 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     Ok(api.finalize()?)
 }
 
-// register binding within libafb
+// register binding within afbv4
 AfbBindingRegister!(binding_init);

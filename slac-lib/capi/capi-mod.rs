@@ -20,7 +20,7 @@ use std::ffi::CString;
 use std::fmt;
 use std::mem;
 
-use libafb::prelude::AfbError;
+use afbv4::prelude::AfbError; 
 #[allow(non_camel_case_types)]
 pub type cchar = ::std::os::raw::c_char;
 

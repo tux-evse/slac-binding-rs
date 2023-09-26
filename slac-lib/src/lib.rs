@@ -25,7 +25,7 @@
     html_favicon_url = "https://iot.bzh/images/defaults/favicon.ico"
 )]
 
-extern crate libafb;
+extern crate afbv4;
 
 #[path = "../capi/capi-mod.rs"]
 mod capi;

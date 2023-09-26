@@ -15,7 +15,7 @@
     html_favicon_url = "https://iot.bzh/images/defaults/favicon.ico"
 )]
 
-extern crate libafb;
+extern crate afbv4;
 extern crate serde;
 
 #[path = "verbs.rs"]

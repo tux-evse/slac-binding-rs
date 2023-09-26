@@ -12,7 +12,7 @@
 use std::rc::Rc;
 
 use crate::prelude::*;
-use libafb::prelude::*;
+use afbv4::prelude::*;
 use libslac::prelude::*;
 
 //#[derive(Clone)]

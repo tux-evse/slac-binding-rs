@@ -25,7 +25,7 @@
  */
 
 use crate::prelude::*;
-use libafb::prelude::AfbError;
+use afbv4::prelude::AfbError;
 use std::fmt;
 use std::mem;
 
