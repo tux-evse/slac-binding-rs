@@ -226,7 +226,7 @@ impl GetTime {
         };
         let time = unsafe { cglue::time(0 as *mut cglue::time_t) };
         let locale = unsafe { cglue::localtime(&time) };
-        let mut buffer = [0_cchar; 64];
+        let mut buffer = [0_isize; 64];
         unsafe { cglue::strftime(buffer.as_mut_ptr(), buffer.len(), fmt.as_ptr(), locale) };
         let cstring = unsafe { CStr::from_ptr(buffer.as_ptr()) };
         let slice = match cstring.to_str() {
