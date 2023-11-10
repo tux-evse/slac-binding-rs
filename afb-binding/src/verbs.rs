@@ -48,7 +48,7 @@ fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut SessionCtx) {
     let slac = &ctx.session.slac;
     let evt = ctx.session.event;
 
-    if revent == AfbEvtFdPoll::IN.value() {
+    if revent == AfbEvtFdPoll::IN.bits() {
         match SlacRawMsg::read(slac.get_sock()) {
             Err(error) => {
                 afb_log_msg!(
