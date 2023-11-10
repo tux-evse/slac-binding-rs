@@ -15,6 +15,7 @@
     html_favicon_url = "https://iot.bzh/images/defaults/favicon.ico"
 )]
 
+#[cfg(not(afbv4))]
 extern crate afbv4;
 extern crate serde;
 

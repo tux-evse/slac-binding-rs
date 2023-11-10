@@ -26,7 +26,7 @@ use std::mem;
 use std::time::Instant;
 
 use crate::prelude::*;
-use afbv4::prelude::AfbError;
+use afbv4::prelude::*;
 
 // Session state extracted from Switch/PySlac code
 #[derive(Clone, Copy, Debug)]

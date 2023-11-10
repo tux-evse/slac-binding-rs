@@ -8,7 +8,7 @@ build = "capi/build.rs"
 
 [dependencies]
 sha2={ version= "0"}
-#lib_libafb = {path= "../../../Rust/afb-librust/libafb"}
+afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
 
 [build-dependencies]
 bindgen    = ">=0.6"

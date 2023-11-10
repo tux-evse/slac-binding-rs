@@ -20,8 +20,12 @@ use std::ffi::CString;
 use std::fmt;
 use std::mem;
 
+<<<<<<< HEAD
 use afbv4::prelude::AfbError; 
 #[allow(non_camel_case_types)]
+=======
+use afbv4::prelude::*;
+>>>>>>> 85bebc7 (fix afbv4 new dependenci model)
 pub type cchar = ::std::os::raw::c_char;
 
 const MAX_ERROR_LEN: usize = 256;

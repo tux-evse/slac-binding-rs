@@ -23,7 +23,11 @@
  *  static values and documentation taken from Switch PySlac code
  */
 
+<<<<<<< HEAD
 use afbv4::prelude::AfbError;
+=======
+use afbv4::prelude::*;
+>>>>>>> 85bebc7 (fix afbv4 new dependenci model)
 
 
 //  [V2G3-M06-05]- In case NO communication could be established with a
