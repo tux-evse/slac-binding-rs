@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+use ::std::os::raw;
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::fmt;
@@ -67,11 +67,11 @@ pub fn get_perror() -> String {
     unsafe {
         cglue::strerror_r(
             *cglue::__errno_location(),
-            &mut buffer as *mut Cchar,
+            &mut buffer as *mut raw::c_char,
             MAX_ERROR_LEN,
         )
     };
-    let cstring = unsafe { CStr::from_ptr(&mut buffer as *const Cchar) };
+    let cstring = unsafe { CStr::from_ptr(&mut buffer as *const raw::c_char) };
     let slice: &str = cstring.to_str().unwrap();
     slice.to_owned()
 }
