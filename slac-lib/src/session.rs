@@ -160,10 +160,10 @@ impl SlacSession {
     ) -> Result<(), AfbError> {
         match self.state.try_borrow_mut() {
             Err(_) => {
-                return Err(AfbError::new(
+                return afb_error!(
                     "session-update-state",
                     "fail to access state",
-                ))
+                )
             }
             Ok(mut state) => {
                 state.pending = rqt;
@@ -182,7 +182,7 @@ impl SlacSession {
         secu_type: u8,
     ) -> Result<(), AfbError> {
         match self.state.try_borrow_mut() {
-            Err(_) => return Err(AfbError::new("session-set-runid", "fail to access state")),
+            Err(_) => return afb_error!("session-set-runid", "fail to access state"),
             Ok(mut state) => {
                 state.runid = runid.clone();
                 state.application_type = app_type;
@@ -194,21 +194,21 @@ impl SlacSession {
 
     pub fn get_pending(&self) -> Result<SlacRequest, AfbError> {
         match self.state.try_borrow() {
-            Err(_) => Err(AfbError::new("session-get-pending", "fail to access state")),
+            Err(_) => afb_error!("session-get-pending", "fail to access state"),
             Ok(value) => Ok(*Ref::map(value, |t| &t.pending)),
         }
     }
 
     pub fn get_status(&self) -> Result<SlacStatus, AfbError> {
         match self.state.try_borrow() {
-            Err(_) => Err(AfbError::new("session-get-status", "fail to access state")),
+            Err(_) => afb_error!("session-get-status", "fail to access state"),
             Ok(value) => Ok(*Ref::map(value, |t| &t.status)),
         }
     }
 
     pub fn get_nid(&self) -> Result<SlacNid, AfbError> {
         match self.state.try_borrow() {
-            Err(_) => Err(AfbError::new("session-get-nid", "fail to access state")),
+            Err(_) => afb_error!("session-get-nid", "fail to access state"),
             Ok(value) => Ok(Ref::map(value, |t| &t.nid).clone()),
         }
     }
@@ -217,7 +217,7 @@ impl SlacSession {
     // Fulup TBD: what should be do when session fail to match ???
     pub fn check(&self) -> Result<SlacRequest, AfbError> {
         let action = match self.state.try_borrow_mut() {
-            Err(_) => return Err(AfbError::new("session-check", "fail to access state")),
+            Err(_) => return afb_error!("session-check", "fail to access state"),
             Ok(mut state) => {
                 if let SlacStatus::WAITING = state.status {
                     let now = Instant::now();
@@ -233,10 +233,10 @@ impl SlacSession {
                             }
                             SlacRequest::CM_SLAC_MATCH => {
                                 state.status = SlacStatus::UNMATCHED;
-                                return Err(AfbError::new(
+                                return afb_error!(
                                     "session-check-match",
                                     "timeout while waiting match",
-                                ));
+                                )
                             }
 
                             _ => SlacRequest::CM_NONE, // waiting command as no chaining
@@ -301,10 +301,10 @@ impl SlacSession {
 
         match self.state.try_borrow_mut() {
             Err(_) => {
-                return Err(AfbError::new(
+                return afb_error!(
                     "session-send-param-req",
                     "fail to access state",
-                ))
+                )
             }
             Ok(mut state) => {
                 payload.send(&self.socket, &ATHEROS_ADDR)?;
@@ -326,10 +326,10 @@ impl SlacSession {
     pub fn send_param_cnf(&self) -> Result<(), AfbError> {
         match self.state.try_borrow() {
             Err(_) => {
-                return Err(AfbError::new(
+                return afb_error!(
                     "session-send-param-req",
                     "fail to access state",
-                ))
+                )
             }
             Ok(state) => {
                 let payload = SlacParmCnf {
@@ -360,10 +360,10 @@ impl SlacSession {
     pub fn send_atten_char(&self) -> Result<(), AfbError> {
         match self.state.try_borrow() {
             Err(_) => {
-                return Err(AfbError::new(
+                return afb_error!(
                     "session-send-atten-char",
                     "fail to access state",
-                ))
+                )
             }
             Ok(state) => {
                 let mut agg_group: SlacGroups = [0 as u8; SLAC_AGGGROUP_LEN];
@@ -400,10 +400,10 @@ impl SlacSession {
     pub fn send_slac_match(&self) -> Result<(), AfbError> {
         match self.state.try_borrow() {
             Err(_) => {
-                return Err(AfbError::new(
+                return afb_error!(
                     "session-send-slac-match",
                     "fail to access state",
-                ))
+                )
             }
             Ok(state) => {
                 let payload = SlacMatchCnf {
@@ -434,7 +434,7 @@ impl SlacSession {
 
     pub fn evse_clear_key(&self) -> Result<(), AfbError> {
         match self.state.try_borrow_mut() {
-            Err(_) => return Err(AfbError::new("session-clear-key", "fail to access state")),
+            Err(_) => return afb_error!("session-clear-key", "fail to access state"),
             Ok(mut state) => {
                     state.nid=[0; SLAC_NID_LEN];
                     state.pending= SlacRequest::CM_NONE;
@@ -450,14 +450,14 @@ impl SlacSession {
             SlacPayload::SetKeyCnf(payload) => {
                 match self.state.try_borrow() {
                     Err(_) => {
-                        return Err(AfbError::new("session-set-key-cnf", "fail to access state"))
+                        return afb_error!("session-set-key-cnf", "fail to access state")
                     }
                     Ok(state) => {
                         if payload.result != 0 || payload.your_nonce != state.nonce {
-                            return Err(AfbError::new(
+                            return afb_error!(
                                 "session-set-key-cnf",
                                 "invalid payload content",
-                            ));
+                            )
                         }
 
                         // Fulup what to do with payload data ???
@@ -492,21 +492,21 @@ impl SlacSession {
                 // terminated [V2G3-A09-19]
                 let remaining = match self.state.try_borrow_mut() {
                     Err(_) => {
-                        return Err(AfbError::new("session-mnbc-sound", "fail to access state"))
+                        return afb_error!("session-mnbc-sound", "fail to access state")
                     }
                     Ok(mut state) => {
                         if !matches!(state.pending, SlacRequest::CM_MNBC_SOUND) {
-                            return Err(AfbError::new("session-mnbc-sound", "No sound expected"));
+                            return afb_error!("session-mnbc-sound", "No sound expected")
                         }
 
                         if slice_equal(&payload.run_id, &state.runid)
                             || payload.security_type != state.security_type
                             || payload.application_type != state.application_type
                         {
-                            return Err(AfbError::new(
+                            return afb_error!(
                                 "session-mnbc-sound",
                                 "invalid payload content",
-                            ));
+                            )
                         }
                         state.pevid = payload.pevid;
                         let count = payload.remaining_sound_count;
@@ -533,20 +533,20 @@ impl SlacSession {
             SlacPayload::SlacMatchReq(payload) => {
                 match self.state.try_borrow_mut() {
                     Err(_) => {
-                        return Err(AfbError::new(
+                        return afb_error!(
                             "session-start-attend-char-ind",
                             "fail to access state",
-                        ))
+                        )
                     }
                     Ok(mut state) => {
                         if slice_equal(&payload.run_id, &state.runid)
                             || payload.security_type != state.security_type
                             || payload.application_type != state.application_type
                         {
-                            return Err(AfbError::new(
+                            return afb_error!(
                                 "session-start-attend-char-ind",
                                 "invalid payload content",
-                            ));
+                            )
                         }
 
                         // update PEV station identity
@@ -567,10 +567,10 @@ impl SlacSession {
                 // application, so we just need to process 1
                 match self.state.try_borrow_mut() {
                     Err(_) => {
-                        return Err(AfbError::new(
+                        return afb_error!(
                             "session-start-attend-char-ind",
                             "fail to access state",
-                        ))
+                        )
                     }
                     Ok(mut state) => {
                         if slice_equal(&payload.run_id, &state.runid)
@@ -578,10 +578,10 @@ impl SlacSession {
                             || payload.security_type != state.security_type
                             || payload.application_type != state.application_type
                         {
-                            return Err(AfbError::new(
+                            return afb_error!(
                                 "session-start-attend-char-ind",
                                 "invalid payload content",
-                            ));
+                            )
                         }
                         state.pevmac = payload.forwarding_sta;
                         state.num_sounds = payload.num_sounds;
@@ -612,29 +612,29 @@ impl SlacSession {
                 // response to AttenCharInd
                 match self.state.try_borrow() {
                     Err(_) => {
-                        return Err(AfbError::new(
+                        return afb_error!(
                             "session-atten-char-rsp",
                             "fail to access state",
-                        ))
+                        )
                     }
                     Ok(state) => {
                         if slice_equal(&payload.run_id, &state.runid)
                             || payload.security_type != state.security_type
                             || payload.application_type != state.application_type
                         {
-                            return Err(AfbError::new(
+                            return afb_error!(
                                 "session-atten-char-rsp",
                                 "invalid payload content",
-                            ));
+                            )
                         }
                     }
                 };
 
                 if payload.result != 0 {
-                    return Err(AfbError::new(
+                    return afb_error!(
                         "session-atten-char-rsp",
                         "invalid result status",
-                    ));
+                    )
                 }
 
                 payload.as_slac_payload()?
@@ -665,17 +665,17 @@ impl SlacSession {
                 // number of sounds before returning;
                 match self.state.try_borrow_mut() {
                     Err(_) => {
-                        return Err(AfbError::new(
+                        return afb_error!(
                             "session-attend-profile",
                             "fail to access state",
-                        ))
+                        )
                     }
                     Ok(mut state) => {
                         if slice_equal(&payload.pev_mac, &state.pevmac) {
-                            return Err(AfbError::new(
+                            return afb_error!(
                                 "session-attend-profile",
                                 "invalid source PEV Mac addr",
-                            ));
+                            )
                         }
 
                         state.agv_count = state.agv_count + 1;
@@ -689,10 +689,10 @@ impl SlacSession {
             }
 
             _ => {
-                return Err(AfbError::new(
+                return afb_error!(
                     "session-decode",
                     "unknown homeplug response mimetype ",
-                ))
+                )
             }
         };
 

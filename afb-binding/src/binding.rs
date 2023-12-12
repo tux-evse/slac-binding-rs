@@ -10,9 +10,9 @@
  *
  */
 
+use crate::prelude::*;
 use afbv4::prelude::*;
 use libslac::prelude::*;
-use crate::prelude::*;
 
 pub(crate) fn to_static_str(value: String) -> &'static str {
     Box::leak(value.into_boxed_str())
@@ -59,28 +59,33 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         "br0"
     };
 
-    let value= if let Ok(value) = jconf.get::<String>("nmk") {
-       to_static_str(value)
+    let value = if let Ok(value) = jconf.get::<String>("nmk") {
+        to_static_str(value)
     } else {
         // for debug use Qualcomm open-plc-utils NMK value
-       "50:D3:E4:93:3F:85:5B:70:40:78:4D:F8:15:AA:8D:B7"
+        "50:D3:E4:93:3F:85:5B:70:40:78:4D:F8:15:AA:8D:B7"
     };
     // translate from hexa string to byte array
-    let mut nmk:SlacNmk= [0; SLAC_NMK_LEN];
-    hexa_to_byte (value, &mut nmk) ?;
+    let mut nmk: SlacNmk = [0; SLAC_NMK_LEN];
+    hexa_to_byte(value, &mut nmk)?;
 
-    let value= if let Ok(value) = jconf.get::<String>("evseid") {
-       to_static_str(value)
+    let value = if let Ok(value) = jconf.get::<String>("evseid") {
+        to_static_str(value)
     } else {
-       ":Tux::EvSe:0x0000"
+        ":Tux::EvSe:0x0000"
     };
     if value.len() != SLAC_STATID_LEN {
-        return Err(AfbError::new("binding-session-config", format!("Invalid evseid len (should be {} Byte not{}", SLAC_STATID_LEN, value.len())))
+        return afb_error!(
+            "binding-session-config",
+            "Invalid evseid len (should be {} Byte not{}",
+            SLAC_STATID_LEN,
+            value.len()
+        )
     }
 
-    let mut evseid:SlacStaId= [0; SLAC_STATID_LEN];
+    let mut evseid: SlacStaId = [0; SLAC_STATID_LEN];
     for idx in 0..evseid.len() {
-        evseid[idx]=value.as_bytes()[idx];
+        evseid[idx] = value.as_bytes()[idx];
     }
 
     let timeout = if let Ok(value) = jconf.get::<u32>("timeout") {
@@ -111,10 +116,9 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         timetic: timetic * 1000,
     };
 
-    let api_config= ApiConfig {
+    let api_config = ApiConfig {
         uid,
         slac: slac_config,
-
     };
 
     // register data converter

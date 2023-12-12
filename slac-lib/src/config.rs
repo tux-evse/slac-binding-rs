@@ -127,13 +127,13 @@ pub const SLAC_MSOUNDS:u8 = 10;
 // convert an hexadecimal string "0x1,0x2,...0xN" into an &[u8] slice
 pub fn hexa_to_byte(input: &str, buffer: &mut [u8]) -> Result<(), AfbError> {
     if input.len() != 3*buffer.len() -1 {
-        return Err(AfbError::new("string-ecode-hexa", format!("invalid len {}!=2*{}", input.len(), buffer.len())))
+        return afb_error!("string-ecode-hexa", "invalid len {}!=2*{}", input.len(), buffer.len())
     } else {
         let mut idx=0;
         for hexa in input.split(':') {
             match u8::from_str_radix(hexa, 16) {
                 Ok(value) => buffer[idx]=value,
-                Err(_) => return Err(AfbError::new("string-ecode-hexa", "invalid haxa encoding"))
+                Err(_) => return afb_error!("string-ecode-hexa", "invalid haxa encoding")
             }
             idx=idx+1;
         }

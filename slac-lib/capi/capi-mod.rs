@@ -102,13 +102,11 @@ impl SockRaw {
             unsafe { cglue::socket(cglue::INET_PF_PACKET as i32, cglue::INET_SOCKRAW, 0 as i32) };
 
         if sockfd < 0 {
-            return Err(AfbError::new(
+            return afb_error!(
                 "slac-sockraw-socket",
-                format!(
-                    "layer2 socket missing 'CAP_NET_RAW' capability, info:{}",
+                "layer2 socket missing 'CAP_NET_RAW' capability, info:{}",
                     get_perror()
-                ),
-            ));
+            )
         }
 
         // get iface mac addr
@@ -126,10 +124,10 @@ impl SockRaw {
         // get iface mac addr
         let rc = unsafe { cglue::ioctl(sockfd, cglue::INET_SIOCGIFHWADDR as u64, &ifreq) };
         let ifmac = if rc < 0 {
-            return Err(AfbError::new(
+            return afb_error!(
                 "slac-sockraw-socket",
-                format!("Fail to get iface:{} mac addr", ethdev),
-            ));
+                "Fail to get iface:{} mac addr", ethdev
+            )
         } else {
             let mut macaddr: SlacIfMac = [0; ETHER_ADDR_LEN];
             let addr = unsafe { ifreq.ifr_ifru.ifru_hwaddr.sa_data };
@@ -143,7 +141,7 @@ impl SockRaw {
         let status = unsafe { cglue::ioctl(sockfd, cglue::INET_SIOCGIFINDEX as u64, &ifreq) };
         if status < 0 {
             unsafe { cglue::close(sockfd) };
-            return Err(AfbError::new("slac-capi-iface-idx", get_perror()));
+            return afb_error!("slac-capi-iface-idx", get_perror())
         }
         let ifidx = unsafe { ifreq.ifr_ifru.ifru_ivalue };
 
@@ -164,7 +162,7 @@ impl SockRaw {
         };
         if status < 0 {
             unsafe { cglue::close(sockfd) };
-            return Err(AfbError::new("slac-capi-bind", get_perror()));
+            return afb_error!("slac-capi-bind", get_perror())
         }
         // dst mac to 0 force broadcast, it should be replace later to enable Unicast with PEV MacAddr.
         Ok(SockRaw {
@@ -194,7 +192,7 @@ impl SockRaw {
         };
 
         if count <= 0 {
-            Err(AfbError::new("sockraw-read-fail", get_perror()))
+            afb_error!("sockraw-read-fail", get_perror())
         } else {
             Ok(())
         }
@@ -209,7 +207,7 @@ impl SockRaw {
         let count = unsafe { cglue::send(self.sockfd, buffer, len, 0) };
 
         if count != len as isize {
-            Err(AfbError::new("slac-capi-write", get_perror()))
+            afb_error!("slac-capi-write", get_perror())
         } else {
             Ok(())
         }
@@ -276,7 +274,7 @@ impl cglue::homeplug_header {
         let mtype = htole16(self.mmtype);
 
         if masq & mtype != masq {
-            Err(AfbError::new("capi-get_mmtype", "invalid respond masq"))
+            afb_error!("capi-get_mmtype", "invalid respond masq")
         } else {
             Ok(mtype ^ masq)
         }

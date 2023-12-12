@@ -588,14 +588,14 @@ impl SlacRawMsg {
         let mut rqt: SlacRawMsg = unsafe { mem::zeroed() };
         socket.read(&mut rqt)?;
         if rqt.ethernet.get_type() != cglue::ETH_P_HOMEPLUG_GREENPHY {
-            return Err(AfbError::new("SetKeyCnf-read-fail", "invalid ether type"));
+            return afb_error!("SetKeyCnf-read-fail", "invalid ether type")
         }
 
         if rqt.homeplug.mmv != cglue::MMV_HOMEPLUG_GREENPHY {
-            return Err(AfbError::new(
+            return afb_error!(
                 "SetKeyCnf-read-fail",
                 "invalid homeplug type",
-            ));
+            )
         }
         Ok(rqt)
     }
@@ -632,7 +632,7 @@ impl SlacRawMsg {
                 SlacPayload::SlacParmCnf(unsafe { &self.payload.slac_parm_cnf })
             }
 
-            _ => return Err(AfbError::new("slac-msg-parse", "unsupport message mmype")),
+            _ => return afb_error!("slac-msg-parse", "unsupport message mmype"),
         };
         Ok(payload)
     }

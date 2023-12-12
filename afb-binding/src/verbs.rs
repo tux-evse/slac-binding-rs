@@ -36,10 +36,10 @@ pub(self) fn get_session(
             return Ok(session);
         }
     }
-    Err(AfbError::new(
+    afb_error!(
         "slac-sesion-iface",
         "Iface not found with sessions",
-    ))
+    )
 }
 
 // this method is call each time a message is waiting on session raw_socket
