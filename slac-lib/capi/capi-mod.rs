@@ -96,6 +96,7 @@ impl fmt::Display for SockRaw {
 // open a raw socket. Seting so_broadcast is not needed as we use layer2 packet without any IP addr.
 // at create dst addr is set to 0 (should it be to FF ?). Later one dest mac should be updated to switch to unicast mode
 impl SockRaw {
+    #[track_caller]
     pub fn open(ethdev: &'static str) -> Result<SockRaw, AfbError> {
         //let protocol = unsafe { cglue::htons(cglue::INET_ETH_P_ALL) };
         let sockfd =
@@ -182,6 +183,7 @@ impl SockRaw {
     }
 
     // read with ETH_P_ALL require ethernet metadata to prefix data buffer
+    #[track_caller]
     pub fn read(&self, buffer: &mut SlacRawMsg) -> Result<(), AfbError> {
         let count = unsafe {
             cglue::read(
@@ -199,6 +201,7 @@ impl SockRaw {
     }
 
     // write with ETH_P_ALL require ethernet metadata to prefix data buffer
+    #[track_caller]
     pub fn write(&self, buffer: *const ::std::os::raw::c_void, len: usize) -> Result<(), AfbError> {
 
         // layer2 packet should be 60 byte minimum
@@ -270,6 +273,7 @@ impl cglue::homeplug_header {
     }
 
     // retreive mtype verifying reqpond masq flag
+    #[track_caller]
     pub fn get_mmtype(&self, masq: u16) -> Result<u16, AfbError> {
         let mtype = htole16(self.mmtype);
 
