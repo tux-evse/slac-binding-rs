@@ -21,6 +21,8 @@ pub(crate) fn to_static_str(value: String) -> &'static str {
 pub struct ApiConfig {
     pub uid: &'static str,
     pub slac: SessionConfig,
+    pub iso_api: &'static str,
+    pub charging_api: &'static str,
 }
 
 impl AfbApiControls for ApiConfig {
@@ -31,6 +33,26 @@ impl AfbApiControls for ApiConfig {
     }
 
     // mandatory for downcasting back to custom api data object
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+
+// wait until both apis (iso+slac) to be ready before trying event subscription
+struct ApiUserData {
+    iso_api: &'static str,
+}
+
+impl AfbApiControls for ApiUserData {
+    // the API is created and ready. At this level user may subcall api(s) declare as dependencies
+    fn start(&mut self, api: &AfbApi) ->  Result<(),AfbError> {
+        afb_log_msg!(Error, api, "subscribing iec6185 api:{}", self.iso_api);
+        AfbSubCall::call_sync(api, self.iso_api, "subscribe", AFB_NO_DATA) ?;
+        Ok(())
+    }
+
+    // mandatory unsed declaration
     fn as_any(&mut self) -> &mut dyn Any {
         self
     }
@@ -75,13 +97,30 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         ":Tux::EvSe:0x0000"
     };
     if value.len() != SLAC_STATID_LEN {
-        return afb_error!(
+        return Err(AfbError::new(
             "binding-session-config",
-            "Invalid evseid len (should be {} Byte not{}",
-            SLAC_STATID_LEN,
-            value.len()
-        )
+            format!(
+                "Invalid evseid len (should be {} Byte not{}",
+                SLAC_STATID_LEN,
+                value.len()
+            ),
+        ));
     }
+
+    let iso_api = if let Ok(value) = jconf.get::<String>("iec6185_api") {
+        to_static_str(value)
+    } else {
+        return Err(AfbError::new(
+            "binding-iec6185-config",
+            "iec6185 micro service api SHOULD be defined",
+        ));
+    };
+
+    let charging_api = if let Ok(value) = jconf.get::<String>("charging_api") {
+        to_static_str(value)
+    } else {
+        "chrmgr"
+    };
 
     let mut evseid: SlacStaId = [0; SLAC_STATID_LEN];
     for idx in 0..evseid.len() {
@@ -118,19 +157,27 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
 
     let api_config = ApiConfig {
         uid,
+        iso_api,
+        charging_api,
         slac: slac_config,
     };
 
-    // register data converter
-    //sockdata_register(rootv4)?;
-
     // create a new api
-    let api = AfbApi::new(uid).set_info(info).set_permission(acls);
+    let api = AfbApi::new(uid)
+        .set_info(info)
+        .set_permission(acls)
+        .set_callback(Box::new(ApiUserData {
+            iso_api,
+        }));
 
     // register verbs and events
     register(api, api_config)?;
 
-    // finalize api
+    // request iec6185 micro service api and finalize api
+    api.require_api(iso_api);
+    api.require_api(charging_api);
+
+    // freeze & activate api
     Ok(api.finalize()?)
 }
 

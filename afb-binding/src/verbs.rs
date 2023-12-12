@@ -22,6 +22,69 @@ struct AfbSlacSession {
     pub slac: SlacSession,
 }
 
+struct IsoEvtCtrl {
+    chgmgr: &'static str,
+}
+
+fn mk_action(action: &str) -> JsoncObj {
+    let jval = JsoncObj::new();
+    jval.add("action", action).unwrap();
+    jval
+}
+
+AfbEventRegister!(IsoEvtVerb, evt_iec6185_cb, IsoEvtCtrl);
+fn evt_iec6185_cb(event: &AfbEventMsg, args: &AfbData, ctx: &mut IsoEvtCtrl) {
+    let isomsg = match args.get::<String>(0) {
+        Ok(data) => {
+            afb_log_msg!(Debug, event, "-- evt_iec6185_cb data:{}", data);
+            data
+        }
+        Err(_) => {
+            afb_log_msg!(Error, event, "-- evt_iec6185_cb invalid data");
+            return;
+        }
+    };
+
+    let status= match isomsg.as_str() {
+
+        "CAR_PLUGGED_IN" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "plug-state", mk_action("PLUG-IN"))}
+        "CAR_UNPLUGGED"=>{AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "plug-state", mk_action("PLUG-OUT"))}
+
+        "CAR_REQUESTED_POWER" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-request", mk_action("START"))}
+        "CAR_REQUESTED_STOP_POWER" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-request", mk_action("STOP"))}
+
+        "PP_IMAX_NC" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 0)}
+        "PP_IMAX_13A" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 13)}
+        "PP_IMAX_20A" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 20)}
+        "PP_IMAX_32A" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 32)}
+        "PP_IMAX_64A" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 64)}
+
+        "EF_TO_BCD" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "iso-state", mk_action("BDF"))}
+        "BCD_TO_EF" =>{AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "iso-state", mk_action("EF"))}
+
+        "ERROR_E" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-E"))}
+        "ERROR_DF" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-DF"))}
+        "ERROR_RELAIS" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-RELAIS"))}
+        "ERROR_RCD" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-RDC"))}
+        "ERROR_OVER_CURRENT" =>{AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-OVER-CURRENT"))}
+        "PERMANENT_FAULT" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-PERMANENT"))}
+        "ERROR_VENTILATION_NOT_AVAILABLE" =>{AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-VENTILATION"))}
+
+        // "EVSE_REPLUG_STARTED" =>
+        // "EVSE_REPLUG_FINISHED" =>
+
+        // "POWER_ON" =>
+        // "POWER_OFF" => ,
+        _ => {
+             afb_error!("iec-invalid-msg", "got an invalid message:{}",isomsg)
+        }
+    };
+
+    // event callback cannot do anything smart with error
+    if let Err(error) = status {
+        afb_log_msg!(Error, event, error.to_string());
+    }
+}
 struct SessionCtx {
     session: Rc<AfbSlacSession>,
 }
@@ -36,10 +99,10 @@ pub(self) fn get_session(
             return Ok(session);
         }
     }
-    afb_error!(
+    Err(AfbError::new(
         "slac-sesion-iface",
         "Iface not found with sessions",
-    )
+    ))
 }
 
 // this method is call each time a message is waiting on session raw_socket
@@ -215,7 +278,19 @@ pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbErr
         .set_usage("{'iface':'xxx','state':'A|B|...'}")
         .finalize()?;
 
+
+    // finally subscribe to iec6185 events
+    let iso_handle= AfbEvtHandler::new("iec6185")
+        .set_info("iec6185 event from ti-am62x binding")
+        .set_pattern(to_static_str(format!("{}/iec6185", config.iso_api)))
+        .set_callback(Box::new(IsoEvtCtrl {
+            chgmgr: config.charging_api,
+        }))
+        .finalize()?;
+
+    // register verb, event & handler into api
     api.add_verb(newstate);
+    api.add_evt_handler(iso_handle);
 
     Ok(())
 }
