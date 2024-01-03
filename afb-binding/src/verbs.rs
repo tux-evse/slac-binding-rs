@@ -33,57 +33,106 @@ fn mk_action(action: &str) -> JsoncObj {
 }
 
 AfbEventRegister!(IsoEvtVerb, evt_iec6185_cb, IsoEvtCtrl);
-fn evt_iec6185_cb(event: &AfbEventMsg, args: &AfbData, ctx: &mut IsoEvtCtrl) {
-    let isomsg = match args.get::<String>(0) {
-        Ok(data) => {
-            afb_log_msg!(Debug, event, "-- evt_iec6185_cb data:{}", data);
-            data
+fn evt_iec6185_cb(
+    event: &AfbEventMsg,
+    args: &AfbData,
+    ctx: &mut IsoEvtCtrl,
+) -> Result<(), AfbError> {
+    let isomsg = args.get::<String>(0)?;
+    afb_log_msg!(Debug, event, "-- evt_iec6185_cb data:{}", isomsg);
+
+    match isomsg.as_str() {
+        "CAR_PLUGGED_IN" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "plug-state",
+            mk_action("PLUG-IN"),
+        ),
+        "CAR_UNPLUGGED" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "plug-state",
+            mk_action("PLUG-OUT"),
+        ),
+
+        "CAR_REQUESTED_POWER" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "power-request",
+            mk_action("START"),
+        ),
+        "CAR_REQUESTED_STOP_POWER" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "power-request",
+            mk_action("STOP"),
+        ),
+
+        "PP_IMAX_NC" => AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 0),
+        "PP_IMAX_13A" => AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 13),
+        "PP_IMAX_20A" => AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 20),
+        "PP_IMAX_32A" => AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 32),
+        "PP_IMAX_64A" => AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 64),
+
+        "EF_TO_BCD" => {
+            AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "iso-state", mk_action("BDF")?)
         }
-        Err(_) => {
-            afb_log_msg!(Error, event, "-- evt_iec6185_cb invalid data");
-            return;
+
+        "BCD_TO_EF" => {
+            AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "iso-state", mk_action("EF")?)
         }
-    };
 
-    let status= match isomsg.as_str() {
-
-        "CAR_PLUGGED_IN" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "plug-state", mk_action("PLUG-IN"))}
-        "CAR_UNPLUGGED"=>{AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "plug-state", mk_action("PLUG-OUT"))}
-
-        "CAR_REQUESTED_POWER" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-request", mk_action("START"))}
-        "CAR_REQUESTED_STOP_POWER" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-request", mk_action("STOP"))}
-
-        "PP_IMAX_NC" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 0)}
-        "PP_IMAX_13A" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 13)}
-        "PP_IMAX_20A" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 20)}
-        "PP_IMAX_32A" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 32)}
-        "PP_IMAX_64A" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "power-imax", 64)}
-
-        "EF_TO_BCD" =>  {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "iso-state", mk_action("BDF"))}
-        "BCD_TO_EF" =>{AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "iso-state", mk_action("EF"))}
-
-        "ERROR_E" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-E"))}
-        "ERROR_DF" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-DF"))}
-        "ERROR_RELAIS" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-RELAIS"))}
-        "ERROR_RCD" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-RDC"))}
-        "ERROR_OVER_CURRENT" =>{AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-OVER-CURRENT"))}
-        "PERMANENT_FAULT" => {AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-PERMANENT"))}
-        "ERROR_VENTILATION_NOT_AVAILABLE" =>{AfbSubCall::call_sync(event.get_apiv4(), ctx.chgmgr, "err-state", mk_action("ERR-VENTILATION"))}
+        "ERROR_E" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "err-state",
+            mk_action("ERR-E"),
+        ),
+        "ERROR_DF" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "err-state",
+            mk_action("ERR-DF"),
+        ),
+        "ERROR_RELAIS" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "err-state",
+            mk_action("ERR-RELAIS"),
+        ),
+        "ERROR_RCD" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "err-state",
+            mk_action("ERR-RDC"),
+        ),
+        "ERROR_OVER_CURRENT" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "err-state",
+            mk_action("ERR-OVER-CURRENT"),
+        ),
+        "PERMANENT_FAULT" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "err-state",
+            mk_action("ERR-PERMANENT"),
+        ),
+        "ERROR_VENTILATION_NOT_AVAILABLE" => AfbSubCall::call_sync(
+            event.get_apiv4(),
+            ctx.chgmgr,
+            "err-state",
+            mk_action("ERR-VENTILATION"),
+        ),
 
         // "EVSE_REPLUG_STARTED" =>
         // "EVSE_REPLUG_FINISHED" =>
 
         // "POWER_ON" =>
         // "POWER_OFF" => ,
-        _ => {
-             afb_error!("iec-invalid-msg", "got an invalid message:{}",isomsg)
-        }
-    };
-
-    // event callback cannot do anything smart with error
-    if let Err(error) = status {
-        afb_log_msg!(Error, event, error.to_string());
+        _ => return afb_error!("iec-invalid-msg", "got an invalid message:{}", isomsg),
     }
+    Ok(())
 }
 struct SessionCtx {
     session: Rc<AfbSlacSession>,
@@ -107,42 +156,21 @@ pub(self) fn get_session(
 
 // this method is call each time a message is waiting on session raw_socket
 AfbEvtFdRegister!(SessionAsyncCtrl, async_session_cb, SessionCtx);
-fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut SessionCtx) {
+fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut SessionCtx) -> Result<(), AfbError> {
     let slac = &ctx.session.slac;
     let evt = ctx.session.event;
 
     if revent == AfbEvtFdPoll::IN.bits() {
-        match SlacRawMsg::read(slac.get_sock()) {
-            Err(error) => {
-                afb_log_msg!(
-                    Error,
-                    evt,
-                    "iface:{} invalid packet error={}",
-                    slac.get_iface(),
-                    error
-                );
-            }
-            Ok(message) => match slac.decode(&message) {
-                Err(error) => {
-                    afb_log_msg!(
-                        Error,
-                        evt,
-                        "iface:{} Unknown message error={}",
-                        slac.get_iface(),
-                        error
-                    );
-                }
-                Ok(payload) => {
-                    afb_log_msg!(Debug, evt, "iface:{} payload:{}", slac.get_iface(), payload);
-                }
-            },
-        }
+        let message = SlacRawMsg::read(slac.get_sock())?;
+        let payload = slac.decode(&message)?;
+        afb_log_msg!(Debug, evt, "iface:{} payload:{}", slac.get_iface(), payload);
     }
+    Ok(())
 }
 
 // timer sessions maintain pending sessions when needed
 AfbTimerRegister!(TimerCtrl, timer_callback, SessionCtx);
-fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut SessionCtx) {
+fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut SessionCtx) -> Result<(), AfbError> {
     let slac = &ctx.session.slac;
     let evt = ctx.session.event;
 
@@ -161,6 +189,7 @@ fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut SessionCtx) {
             );
         }
     }
+    Ok(())
 }
 
 struct NewStateData {
@@ -278,9 +307,8 @@ pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbErr
         .set_usage("{'iface':'xxx','state':'A|B|...'}")
         .finalize()?;
 
-
     // finally subscribe to iec6185 events
-    let iso_handle= AfbEvtHandler::new("iec6185")
+    let iso_handle = AfbEvtHandler::new("iec6185")
         .set_info("iec6185 event from ti-am62x binding")
         .set_pattern(to_static_str(format!("{}/iec6185", config.iso_api)))
         .set_callback(Box::new(IsoEvtCtrl {
