@@ -1,22 +1,17 @@
 [package]
-name = "slac"
+name = "typesv4"
 version = "0.0.1"
 edition = "2021"
 authors = ["Fulup Le Foll <fulup@iot.bzh>"]
 publish = false
-build = "capi/build.rs"
+build = "etc/build.rs"
 
 [dependencies]
-sha2={ version= "0"}
 afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
-
-[build-dependencies]
-bindgen    = ">=0.6"
-cc = "1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json={ version= "1.0"}
 
 [lib]
-name = "slac"
+name = "typesv4"
 crate-type = ["lib"]
-path = "src/lib.rs"
-
-
+path = "src/libso.rs"

@@ -40,9 +40,8 @@ mod msg;
 #[path = "session.rs"]
 mod session;
 
-// export to external crate restricted to session APIs
 pub mod prelude {
-    pub use crate::capi::*;
+    pub(crate) use crate::capi::*;
     pub use crate::conf::*;
     pub use crate::msg::*;
     pub use crate::session::*;

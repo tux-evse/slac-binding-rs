@@ -12,7 +12,8 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use libslac::prelude::*;
+use slac::prelude::*;
+use typesv4::prelude::*;
 
 pub(crate) fn to_static_str(value: String) -> &'static str {
     Box::leak(value.into_boxed_str())
@@ -21,8 +22,8 @@ pub(crate) fn to_static_str(value: String) -> &'static str {
 pub struct ApiConfig {
     pub uid: &'static str,
     pub slac: SessionConfig,
-    pub iso_api: &'static str,
-    pub charging_api: &'static str,
+    pub eic_api: &'static str,
+    pub eic_evt: &'static str,
 }
 
 impl AfbApiControls for ApiConfig {
@@ -38,17 +39,16 @@ impl AfbApiControls for ApiConfig {
     }
 }
 
-
 // wait until both apis (iso+slac) to be ready before trying event subscription
 struct ApiUserData {
-    iso_api: &'static str,
+    eic_api: &'static str,
 }
 
 impl AfbApiControls for ApiUserData {
     // the API is created and ready. At this level user may subcall api(s) declare as dependencies
-    fn start(&mut self, api: &AfbApi) ->  Result<(),AfbError> {
-        afb_log_msg!(Error, api, "subscribing iec6185 api:{}", self.iso_api);
-        AfbSubCall::call_sync(api, self.iso_api, "subscribe", AFB_NO_DATA) ?;
+    fn start(&mut self, api: &AfbApi) -> Result<(), AfbError> {
+        afb_log_msg!(Error, api, "subscribing iec6185 api:{}", self.eic_api);
+        AfbSubCall::call_sync(api, self.eic_api, "subscribe", true)?;
         Ok(())
     }
 
@@ -63,6 +63,9 @@ impl AfbApiControls for ApiUserData {
 pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi, AfbError> {
     afb_log_msg!(Info, rootv4, "config:{}", jconf);
 
+    // register custom afb-v4 type converter
+    am62x_registers()?;
+
     let uid = if let Ok(value) = jconf.get::<String>("uid") {
         to_static_str(value)
     } else {
@@ -75,7 +78,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         ""
     };
 
-    let iface = if let Ok(value) = jconf.get::<String>("iface") {
+    let iso_itf = if let Ok(value) = jconf.get::<String>("iso_itf") {
         to_static_str(value)
     } else {
         "br0"
@@ -107,7 +110,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         ));
     }
 
-    let iso_api = if let Ok(value) = jconf.get::<String>("iec6185_api") {
+    let eic_api = if let Ok(value) = jconf.get::<String>("iec6185_api") {
         to_static_str(value)
     } else {
         return Err(AfbError::new(
@@ -116,10 +119,13 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         ));
     };
 
-    let charging_api = if let Ok(value) = jconf.get::<String>("charging_api") {
+    let eic_evt = if let Ok(value) = jconf.get::<String>("iec6185_api") {
         to_static_str(value)
     } else {
-        "chrmgr"
+        return Err(AfbError::new(
+            "binding-iec6185-config",
+            "iec6185 micro service evant name SHOULD be defined",
+        ));
     };
 
     let mut evseid: SlacStaId = [0; SLAC_STATID_LEN];
@@ -148,7 +154,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     // NID and NMK should
 
     let slac_config = SessionConfig {
-        iface,
+        iface:iso_itf,
         nmk,
         evseid,
         timeout: timeout * 1000,
@@ -157,8 +163,8 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
 
     let api_config = ApiConfig {
         uid,
-        iso_api,
-        charging_api,
+        eic_api,
+        eic_evt,
         slac: slac_config,
     };
 
@@ -166,16 +172,17 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     let api = AfbApi::new(uid)
         .set_info(info)
         .set_permission(acls)
-        .set_callback(Box::new(ApiUserData {
-            iso_api,
-        }));
+        .set_callback(Box::new(ApiUserData { eic_api }));
+
+    // update root api because we need it within eic event handler
+    api.set_apiv4(rootv4);
 
     // register verbs and events
     register(api, api_config)?;
 
     // request iec6185 micro service api and finalize api
-    api.require_api(iso_api);
-    api.require_api(charging_api);
+    api.require_api(eic_api);
+    api.require_api(iso_itf);
 
     // freeze & activate api
     Ok(api.finalize()?)
