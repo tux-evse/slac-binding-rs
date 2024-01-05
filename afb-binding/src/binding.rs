@@ -182,7 +182,6 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
 
     // request iec6185 micro service api and finalize api
     api.require_api(eic_api);
-    api.require_api(iso_itf);
 
     // freeze & activate api
     Ok(api.finalize()?)
