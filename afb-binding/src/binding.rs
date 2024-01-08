@@ -120,12 +120,12 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         ));
     };
 
-    let iec_evt = if let Ok(value) = jconf.get::<String>("iec6185_api") {
+    let iec_evt = if let Ok(value) = jconf.get::<String>("iec6185_evt") {
         to_static_str(value)
     } else {
         return Err(AfbError::new(
             "binding-iec6185-config",
-            "iec6185 micro service evant name SHOULD be defined",
+            "iec6185 micro service event name SHOULD be defined",
         ));
     };
 

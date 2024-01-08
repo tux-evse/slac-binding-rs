@@ -9,7 +9,7 @@
             "rport": 14,
             "tic": 5000,
             "lock_api": "i2c",
-            "lock_verb": "gpio/lock-motor",
+            "lock_verb": "gpio/lock-motor"
         }
     ]
 }
