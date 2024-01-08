@@ -26,18 +26,9 @@ use std::mem;
 use std::time::Instant;
 
 use crate::prelude::*;
+use typesv4::prelude::*;
 use afbv4::prelude::*;
 
-// Session state extracted from Switch/PySlac code
-#[derive(Clone, Copy, Debug)]
-pub enum SlacStatus {
-    MATCHED,
-    MATCHING,
-    UNMATCHED,
-    WAITING,
-    JOINING,
-    IDLE,
-}
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]

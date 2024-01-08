@@ -9,6 +9,7 @@ build = "capi/build.rs"
 [dependencies]
 sha2={ version= "0"}
 afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
+typesv4= {path ="../afb-types"}
 
 [build-dependencies]
 bindgen    = ">=0.6"

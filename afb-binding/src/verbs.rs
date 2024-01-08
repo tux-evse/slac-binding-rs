@@ -50,12 +50,14 @@ struct IecEvtCtx {
 
 AfbEventRegister!(IsoEvtVerb, evt_iec6185_cb, IecEvtCtx);
 fn evt_iec6185_cb(
-    _event: &AfbEventMsg,
+    event: &AfbEventMsg,
     args: &AfbData,
     ctx: &mut IecEvtCtx,
 ) -> Result<(), AfbError> {
     // ignore any event other than plug status
-    match args.get::<&Iec6185Msg>(0)? {
+    let iecmsg= args.get::<&Iec6185Msg>(0)?;
+    afb_log_msg!(Debug,event, "{:?}", iecmsg);
+    match iecmsg {
         Iec6185Msg::Plugged(connected) => {
             if *connected {
                 ctx.request.set(SlacRqt::Check);
@@ -77,11 +79,10 @@ struct AsyncFdCtx {
 }
 AfbEvtFdRegister!(SessionAsyncCtrl, async_session_cb, AsyncFdCtx);
 fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Result<(), AfbError> {
-
     if revent == AfbEvtFdPoll::IN.bits() {
         use std::mem::MaybeUninit;
         #[allow(invalid_value)]
-        let mut message:SlacRawMsg= unsafe { MaybeUninit::uninit().assume_init()};
+        let mut message: SlacRawMsg = unsafe { MaybeUninit::uninit().assume_init() };
         ctx.slac.get_sock().read(&mut message)?;
         let payload = ctx.slac.decode(&message)?;
         afb_log_msg!(
@@ -91,6 +92,15 @@ fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Res
             ctx.slac.get_iface(),
             payload
         );
+
+        match payload {
+            SlacPayload::SlacParmCnf(_payload) => {
+                ctx.event.push(SlacStatus::JOINING);
+            },
+            SlacPayload::SlacMatchReq(_payload) => {},
+            SlacPayload::SlacMatchCnf(_payload) => {},
+            _ => {}
+        }
     }
     Ok(())
 }
@@ -115,7 +125,7 @@ fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result
 pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbError> {
     // one afb event per slac
     let iface = config.slac.iface;
-    let event = AfbEvent::new(iface);
+    let event = AfbEvent::new("iso");
 
     // create afb/slac slac session and exchange keys
     let slac = Rc::new(SlacSession::new(iface, &config.slac)?);
@@ -136,9 +146,7 @@ pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbErr
     AfbTimer::new(config.uid)
         .set_period(config.slac.timeout)
         .set_decount(0)
-        .set_callback(Box::new(TimerCtx {
-            slac: slac.clone(),
-        }))
+        .set_callback(Box::new(TimerCtx { slac: slac.clone() }))
         .start()?;
 
     // share slac request from event to async callback

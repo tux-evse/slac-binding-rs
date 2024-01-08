@@ -21,6 +21,11 @@ extern crate afbv4;
 #[path = "am62x-types.rs"]
 mod am62x;
 
+#[path = "slac-types.rs"]
+mod slac;
+
+
 pub mod prelude {
+    pub use crate::slac::*;
     pub use crate::am62x::*;
 }
