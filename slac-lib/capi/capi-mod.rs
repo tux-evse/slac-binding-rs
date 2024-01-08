@@ -274,14 +274,8 @@ impl cglue::homeplug_header {
 
     // retreive mtype verifying reqpond masq flag
     #[track_caller]
-    pub fn get_mmtype(&self, masq: u16) -> Result<u16, AfbError> {
-        let mtype = htole16(self.mmtype);
-
-        if masq & mtype != masq {
-            afb_error!("capi-get_mmtype", "invalid respond mtype:{:#02x}",mtype)
-        } else {
-            Ok(mtype ^ masq)
-        }
+    pub fn get_mmtype(&self) -> u16 {
+        htole16(self.mmtype)
     }
 
     pub fn get_mmv(&self) -> u8 {

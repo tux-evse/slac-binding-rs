@@ -616,19 +616,26 @@ impl SlacRawMsg {
 
     // parse message header and return a Rust typed payload
     pub fn parse<'a>(&'a self) -> Result<SlacPayload, AfbError> {
-        let payload = match self.homeplug.get_mmtype(cglue::MMTYPE_MODE_RSP)? {
-            cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_CNF => {
+
+        const CM_SET_KEY:u16=  cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_CNF;
+        const CM_START_ATTEN:u16= cglue::MMTYPE_CM_START_ATTEN_CHAR | cglue::MMTYPE_MODE_RSP;
+        const CM_SLAC_PARAM:u16= cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF;
+
+
+        let payload = match self.homeplug.get_mmtype() {
+
+            CM_SET_KEY  => {
                 //let ptr = unsafe {std::ptr::addr_of!(self.payload.set_key_cnf)};
                 //let val= unsafe { ptr.read_unaligned() };
                 // Fulup added 3 bytes padding to set_key_cnf to avoid read_unaligned()
                 SlacPayload::SetKeyCnf(unsafe { &self.payload.set_key_cnf })
             }
 
-            cglue::MMTYPE_CM_START_ATTEN_CHAR => {
+            CM_START_ATTEN => {
                 SlacPayload::StartAttentCharInd(unsafe { &self.payload.start_atten_char_ind })
             }
 
-            cglue::MMTYPE_CM_SLAC_PARAM => {
+            CM_SLAC_PARAM => {
                 SlacPayload::SlacParmCnf(unsafe { &self.payload.slac_parm_cnf })
             }
 
