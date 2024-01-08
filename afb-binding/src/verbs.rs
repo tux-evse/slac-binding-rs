@@ -55,8 +55,8 @@ fn evt_iec6185_cb(
     ctx: &mut IecEvtCtx,
 ) -> Result<(), AfbError> {
     // ignore any event other than plug status
-    match args.get::<&Eic6185Msg>(0)? {
-        Eic6185Msg::Plugged(connected) => {
+    match args.get::<&Iec6185Msg>(0)? {
+        Iec6185Msg::Plugged(connected) => {
             if *connected {
                 ctx.request.set(SlacRqt::Check);
                 ctx.job_post.post(0)?;
@@ -157,7 +157,7 @@ pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbErr
         .set_info("iec6185 event from ti-am62x binding")
         .set_pattern(to_static_str(format!(
             "{}/{}",
-            config.eic_api, config.eic_evt
+            config.iec_api, config.iec_evt
         )))
         .set_callback(Box::new(IecEvtCtx {
             job_post,

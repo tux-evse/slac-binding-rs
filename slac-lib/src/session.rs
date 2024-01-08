@@ -129,7 +129,7 @@ impl SlacSession {
     // :return: NID [7 bytes]
     // https://manpages.debian.org/testing/plc-utils-extra/evse.1.en.html
     pub fn mk_nid_from_nmk(&self) -> SlacNid {
-        afb_log_msg!(Notice, None, "slac:mk_nid_from_nmk");
+        afb_log_msg!(Notice, None, "SlacSession:mk_nid_from_nmk");
 
         let mut hasher = Sha256::new();
         hasher.update(self.config.nmk);
@@ -160,7 +160,7 @@ impl SlacSession {
         status: SlacStatus,
         timeout: u32,
     ) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "slac:set_status");
+        afb_log_msg!(Notice, None, "SlacSession:set_status");
         match self.state.try_borrow_mut() {
             Err(_) => {
                 return afb_error!(
@@ -184,7 +184,7 @@ impl SlacSession {
         app_type: u8,
         secu_type: u8,
     ) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "slac:set_param_req");
+        afb_log_msg!(Notice, None, "SlacSession:set_param_req");
         match self.state.try_borrow_mut() {
             Err(_) => return afb_error!("session-set-runid", "fail to access state"),
             Ok(mut state) => {
@@ -197,7 +197,7 @@ impl SlacSession {
     }
 
     pub fn get_pending(&self) -> Result<SlacRequest, AfbError> {
-        afb_log_msg!(Notice, None, "slac:get_pending");
+        afb_log_msg!(Notice, None, "SlacSession:get_pending");
 
         match self.state.try_borrow() {
             Err(_) => afb_error!("session-get-pending", "fail to access state"),
@@ -206,7 +206,7 @@ impl SlacSession {
     }
 
     pub fn get_status(&self) -> Result<SlacStatus, AfbError> {
-        afb_log_msg!(Notice, None, "slac:get_status");
+        afb_log_msg!(Notice, None, "SlacSession:get_status");
         match self.state.try_borrow() {
             Err(_) => afb_error!("session-get-status", "fail to access state"),
             Ok(value) => Ok(*Ref::map(value, |t| &t.status)),
@@ -214,7 +214,7 @@ impl SlacSession {
     }
 
     pub fn get_nid(&self) -> Result<SlacNid, AfbError> {
-        afb_log_msg!(Notice, None, "slac:get_nid");
+        afb_log_msg!(Notice, None, "SlacSession:get_nid");
         match self.state.try_borrow() {
             Err(_) => afb_error!("session-get-nid", "fail to access state"),
             Ok(value) => Ok(Ref::map(value, |t| &t.nid).clone()),
@@ -291,7 +291,7 @@ impl SlacSession {
     // Refer to Section 7.10.7.3 for generation of nonces.
     // The only secure way to remove a STA from an AVLN is to change the NMK
     pub fn send_set_key_req(&self) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "slac:send_set_key_req");
+        afb_log_msg!(Notice, None, "SlacSession:send_set_key_req");
         let nid = self.mk_nid_from_nmk();
         let nonce: u32 = GetTime::mk_nonce();
 
@@ -333,7 +333,7 @@ impl SlacSession {
 
     // CM_SLAC_PARAM.CNF
     pub fn send_param_cnf(&self) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "slac:send_param_cnf");
+        afb_log_msg!(Notice, None, "SlacSession:send_param_cnf");
         match self.state.try_borrow() {
             Err(_) => {
                 return afb_error!(
@@ -368,7 +368,7 @@ impl SlacSession {
     }
 
     pub fn send_atten_char(&self) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "slac:send_atten_char");
+        afb_log_msg!(Notice, None, "SlacSession:send_atten_char");
         match self.state.try_borrow() {
             Err(_) => {
                 return afb_error!(
@@ -409,7 +409,7 @@ impl SlacSession {
 
     // CM_SLAC_MATCH config to join EVSE logical network
     pub fn send_slac_match(&self) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "slac:send_slac_match");
+        afb_log_msg!(Notice, None, "SlacSession:send_slac_match");
         match self.state.try_borrow() {
             Err(_) => {
                 return afb_error!(
@@ -445,7 +445,7 @@ impl SlacSession {
     }
 
     pub fn evse_clear_key(&self) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "slac:evse_clear_key");
+        afb_log_msg!(Notice, None, "SlacSession:evse_clear_key");
         match self.state.try_borrow_mut() {
             Err(_) => return afb_error!("session-clear-key", "fail to access state"),
             Ok(mut state) => {
@@ -458,10 +458,10 @@ impl SlacSession {
     }
 
     pub fn decode<'a>(&self, msg: &'a SlacRawMsg) -> Result<SlacPayload<'a>, AfbError> {
-        afb_log_msg!(Notice, None, "slac:decode");
         let payload = match msg.parse()? {
             //got CM_SET_KEY.CNF reply CM_SLAC_PARAM.CNF
             SlacPayload::SetKeyCnf(payload) => {
+                afb_log_msg!(Notice, None, "SlacPayload::SetKeyCnf");
                 match self.state.try_borrow() {
                     Err(_) => {
                         return afb_error!("session-set-key-cnf", "fail to access state")
@@ -488,6 +488,7 @@ impl SlacSession {
 
             //got CM_SLAC_PARAM.REQ reply CM_SLAC_PARAM.CNF
             SlacPayload::SlacParmReq(payload) => {
+                afb_log_msg!(Notice, None, "SlacPayload::SlacParmReq");
                 self.set_param_req(
                     &payload.run_id,
                     payload.application_type,
@@ -504,6 +505,7 @@ impl SlacSession {
                 // or num of total sounds is >= expected sounds thus, the Atten
                 // data must be grouped and averaged before the loop is
                 // terminated [V2G3-A09-19]
+                afb_log_msg!(Notice, None, "SlacPayload::MnbcSoundInd");
                 let remaining = match self.state.try_borrow_mut() {
                     Err(_) => {
                         return afb_error!("session-mnbc-sound", "fail to access state")
@@ -545,6 +547,7 @@ impl SlacSession {
 
             // CM_SLAC_MATCH.REQ
             SlacPayload::SlacMatchReq(payload) => {
+                afb_log_msg!(Notice, None, "SlacPayload::SlacMatchReq");
                 match self.state.try_borrow_mut() {
                     Err(_) => {
                         return afb_error!(
@@ -579,6 +582,7 @@ impl SlacSession {
                 // CM_START_ATTEN_CHAR, regardless if the first one was correctly
                 // received and processed. However, the PLC just forwards 1 to the
                 // application, so we just need to process 1
+                afb_log_msg!(Notice, None, "SlacPayload::StartAttentCharInd");
                 match self.state.try_borrow_mut() {
                     Err(_) => {
                         return afb_error!(
@@ -624,6 +628,7 @@ impl SlacSession {
 
             SlacPayload::AttenCharRsp(payload) => {
                 // response to AttenCharInd
+                afb_log_msg!(Notice, None, "SlacPayload::AttenCharRsp");
                 match self.state.try_borrow() {
                     Err(_) => {
                         return afb_error!(
@@ -677,6 +682,7 @@ impl SlacSession {
                 // store the running total of CM_ATTEN_PROFILE.IND.AAG values in
                 // the session variable and compute the average based on actual
                 // number of sounds before returning;
+                afb_log_msg!(Notice, None, "SlacPayload::AttenProfileInd");
                 match self.state.try_borrow_mut() {
                     Err(_) => {
                         return afb_error!(

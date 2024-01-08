@@ -1,5 +1,5 @@
 {
-  "name": "afb-rust",
+  "name": "afb-slac",
   "no-ldpaths": true,
   "alias": ["/devtools:/usr/share/afb-ui-devtools/binder"],
   "monitoring": true,

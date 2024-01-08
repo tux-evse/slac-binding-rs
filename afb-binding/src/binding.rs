@@ -22,8 +22,8 @@ pub(crate) fn to_static_str(value: String) -> &'static str {
 pub struct ApiConfig {
     pub uid: &'static str,
     pub slac: SessionConfig,
-    pub eic_api: &'static str,
-    pub eic_evt: &'static str,
+    pub iec_api: &'static str,
+    pub iec_evt: &'static str,
 }
 
 impl AfbApiControls for ApiConfig {
@@ -41,14 +41,14 @@ impl AfbApiControls for ApiConfig {
 
 // wait until both apis (iso+slac) to be ready before trying event subscription
 struct ApiUserData {
-    eic_api: &'static str,
+    iec_api: &'static str,
 }
 
 impl AfbApiControls for ApiUserData {
     // the API is created and ready. At this level user may subcall api(s) declare as dependencies
     fn start(&mut self, api: &AfbApi) -> Result<(), AfbError> {
-        afb_log_msg!(Error, api, "subscribing energy api:{}", self.eic_api);
-        AfbSubCall::call_sync(api, self.eic_api, "subscribe", true)?;
+        afb_log_msg!(Error, api, "subscribing energy api:{}", self.iec_api);
+        AfbSubCall::call_sync(api, self.iec_api, "subscribe", true)?;
         Ok(())
     }
 
@@ -110,7 +110,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         ));
     }
 
-    let eic_api = if let Ok(value) = jconf.get::<String>("iec6185_api") {
+    let iec_api = if let Ok(value) = jconf.get::<String>("iec6185_api") {
         to_static_str(value)
     } else {
         return Err(AfbError::new(
@@ -119,7 +119,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         ));
     };
 
-    let eic_evt = if let Ok(value) = jconf.get::<String>("iec6185_api") {
+    let iec_evt = if let Ok(value) = jconf.get::<String>("iec6185_api") {
         to_static_str(value)
     } else {
         return Err(AfbError::new(
@@ -163,8 +163,8 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
 
     let api_config = ApiConfig {
         uid,
-        eic_api,
-        eic_evt,
+        iec_api,
+        iec_evt,
         slac: slac_config,
     };
 
@@ -172,16 +172,16 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     let api = AfbApi::new(uid)
         .set_info(info)
         .set_permission(acls)
-        .set_callback(Box::new(ApiUserData { eic_api }));
+        .set_callback(Box::new(ApiUserData { iec_api }));
 
-    // update root api because we need it within eic event handler
+    // update root api because we need it within iec event handler
     api.set_apiv4(rootv4);
 
     // register verbs and events
     register(api, api_config)?;
 
     // request iec6185 micro service api and finalize api
-    api.require_api(eic_api);
+    api.require_api(iec_api);
 
     // freeze & activate api
     Ok(api.finalize()?)
