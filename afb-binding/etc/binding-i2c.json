@@ -1,0 +1,76 @@
+{
+
+    "binding": [
+        {
+            "path": "/usr/redpesk/i2c-binding-rs/lib/libafb_i2c.so",
+            "uid": "i2c-bus",
+            "api": "i2c",
+            "info": "i2c set/get api",
+            "i2cbus": "/dev/i2c-0",
+            "permission": "acl:i2c:0",
+            "devices": [
+                {
+                    "uid": "gpio-multiplexer",
+                    "prefix": "gpio",
+                    "info": "interface to power GPIO multiplexer",
+                    "addr": "0x20",
+                    "size": 1,
+                    "init": [
+                        {
+                            "reg": "0x02",
+                            "value": "0x04"
+                        },
+                        {
+                            "reg": "0x06",
+                            "value": "0x83"
+                        }
+                    ],
+                    "cmds": [
+                        {
+                            "uid": "lock-motor",
+                            "name": "lock",
+                            "info": "Lock motor register",
+                            "permission": "acl:ic2:lock-motor",
+                            "delay": 300,
+                            "register": "0x02",
+                            "presets": [
+                                {
+                                    "action": "on",
+                                    "values": [
+                                        "0x04",
+                                        "0x24",
+                                        "0x04"
+                                    ]
+                                },
+                                {
+                                    "action": "off",
+                                    "values": [
+                                        "0x04",
+                                        "0x14",
+                                        "0x04"
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "uid": "lock-status",
+                            "name": "status",
+                            "info": "Lock status register",
+                            "size": 1,
+                            "register": "0x00",
+                            "presets": []
+                        },
+                        {
+                            "uid": "relay-status",
+                            "name": "relay",
+                            "info": "Relay status register",
+                            "size": 2,
+                            "register": "0x01",
+                            "presets": []
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

@@ -47,7 +47,7 @@ struct ApiUserData {
 impl AfbApiControls for ApiUserData {
     // the API is created and ready. At this level user may subcall api(s) declare as dependencies
     fn start(&mut self, api: &AfbApi) -> Result<(), AfbError> {
-        afb_log_msg!(Error, api, "subscribing iec6185 api:{}", self.eic_api);
+        afb_log_msg!(Error, api, "subscribing energy api:{}", self.eic_api);
         AfbSubCall::call_sync(api, self.eic_api, "subscribe", true)?;
         Ok(())
     }
