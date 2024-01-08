@@ -461,7 +461,7 @@ impl SlacSession {
                         if payload.result != 1 /*bug*/ || payload.your_nonce != state.nonce {
                             return afb_error!(
                                 "session-set-key-cnf",
-                                "invalid payload result:{}, validnonce:{}", payload.result, payload.your_nonce == state.nonce
+                                "invalid payload result:{}, valid-nonces:{}", payload.result, payload.your_nonce == state.nonce
                             )
                         }
 
