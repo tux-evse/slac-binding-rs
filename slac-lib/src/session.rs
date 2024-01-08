@@ -458,10 +458,10 @@ impl SlacSession {
                         return afb_error!("session-set-key-cnf", "fail to access state")
                     }
                     Ok(state) => {
-                        if payload.result != 0 || payload.your_nonce != state.nonce {
+                        if payload.result != 1 /*bug*/ || payload.your_nonce != state.nonce {
                             return afb_error!(
                                 "session-set-key-cnf",
-                                "invalid payload content",
+                                "invalid payload result:{}, validnonce:{}", payload.result, payload.your_nonce == state.nonce
                             )
                         }
 

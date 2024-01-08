@@ -588,14 +588,11 @@ impl SlacRawMsg {
         let mut rqt: SlacRawMsg = unsafe { mem::zeroed() };
         socket.read(&mut rqt)?;
         if rqt.ethernet.get_type() != cglue::ETH_P_HOMEPLUG_GREENPHY {
-            return afb_error!("SetKeyCnf-read-fail", "invalid ether type")
+            return afb_error!("SetKeyCnf-read-fail", "invalid ether type");
         }
 
         if rqt.homeplug.mmv != cglue::MMV_HOMEPLUG_GREENPHY {
-            return afb_error!(
-                "SetKeyCnf-read-fail",
-                "invalid homeplug type",
-            )
+            return afb_error!("SetKeyCnf-read-fail", "invalid homeplug type",);
         }
         Ok(rqt)
     }
@@ -616,15 +613,12 @@ impl SlacRawMsg {
 
     // parse message header and return a Rust typed payload
     pub fn parse<'a>(&'a self) -> Result<SlacPayload, AfbError> {
-
-        const CM_SET_KEY:u16=  cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_CNF;
-        const CM_START_ATTEN:u16= cglue::MMTYPE_CM_START_ATTEN_CHAR | cglue::MMTYPE_MODE_RSP;
-        const CM_SLAC_PARAM:u16= cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF;
-
+        const CM_SET_KEY: u16 = cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_CNF;
+        const CM_START_ATTEN: u16 = cglue::MMTYPE_CM_START_ATTEN_CHAR | cglue::MMTYPE_MODE_RSP;
+        const CM_SLAC_PARAM: u16 = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF;
 
         let payload = match self.homeplug.get_mmtype() {
-
-            CM_SET_KEY  => {
+            CM_SET_KEY => {
                 //let ptr = unsafe {std::ptr::addr_of!(self.payload.set_key_cnf)};
                 //let val= unsafe { ptr.read_unaligned() };
                 // Fulup added 3 bytes padding to set_key_cnf to avoid read_unaligned()
@@ -635,9 +629,7 @@ impl SlacRawMsg {
                 SlacPayload::StartAttentCharInd(unsafe { &self.payload.start_atten_char_ind })
             }
 
-            CM_SLAC_PARAM => {
-                SlacPayload::SlacParmCnf(unsafe { &self.payload.slac_parm_cnf })
-            }
+            CM_SLAC_PARAM => SlacPayload::SlacParmCnf(unsafe { &self.payload.slac_parm_cnf }),
 
             _ => return afb_error!("slac-msg-parse", "unsupport message mmype"),
         };
