@@ -278,7 +278,7 @@ impl cglue::homeplug_header {
         let mtype = htole16(self.mmtype);
 
         if masq & mtype != masq {
-            afb_error!("capi-get_mmtype", "invalid respond masq")
+            afb_error!("capi-get_mmtype", "invalid respond mtype:{:#02x}",mtype)
         } else {
             Ok(mtype ^ masq)
         }

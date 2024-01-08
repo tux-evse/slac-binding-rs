@@ -15,6 +15,7 @@ echo Slac debug mode config=$CONFDIR/*.json port=$DEVTOOL_PORT
 
 afb-binder --name=afb-slac --port=$DEVTOOL_PORT -v \
   --config=$CONFDIR/binder-slac.json \
+  --config=$CONFDIR/binding-slac.json \
   --config=$CONFDIR/binding-am62x.json \
   --config=$CONFDIR/binding-i2c.json \
   $*

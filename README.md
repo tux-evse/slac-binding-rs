@@ -106,6 +106,10 @@ lancer wireshark sur interface veth-xx
 su -c  "wireshark -i vethA -k -S"
 ```
 
+For target remote wireshark debug
+ #warning on host you need to be member of wireshark group or use su as in previous native case
+ ssh root@phytec-power "tcpdump -s0 -U -n -w - -i eth2 " | usermod -a -G wireshark fulup ^Creshark -i -
+
 ## Reference
 
 * [1]: Switch PySlac: https://github.com/SwitchEV/pyslac
