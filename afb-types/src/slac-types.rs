@@ -22,6 +22,7 @@ pub enum SlacStatus {
     UNMATCHED,
     WAITING,
     JOINING,
+    TIMEOUT,
     IDLE,
 }
 

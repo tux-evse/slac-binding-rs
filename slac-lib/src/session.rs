@@ -216,14 +216,20 @@ impl SlacSession {
     // Fulup TBD: what should be do when session fail to match ???
     pub fn check(&self) -> Result<SlacRequest, AfbError> {
         let action = match self.state.try_borrow_mut() {
-            Err(_) => return afb_error!("session-check", "fail to access state"),
+            Err(_) => SlacRequest::CM_NONE, // retry later
             Ok(mut state) => {
                 if let SlacStatus::WAITING = state.status {
                     let now = Instant::now();
                     let elapse = now.duration_since(state.stamp).as_millis();
                     if elapse > state.timeout as u128 {
                         match state.pending {
-                            SlacRequest::CM_SLAC_PARAM => state.pending,
+                            SlacRequest::CM_SLAC_PARAM => {
+                                 state.status = SlacStatus::TIMEOUT;
+                                 return afb_error!(
+                                    "session-check-timeout",
+                                    "slac_param",
+                                )
+                            },
                             SlacRequest::CM_MNBC_SOUND => {
                                 for idx in 0..state.avg_groups as usize {
                                     state.avg_attn[idx] = state.avg_attn[idx] / state.agv_count;
@@ -233,11 +239,10 @@ impl SlacSession {
                             SlacRequest::CM_SLAC_MATCH => {
                                 state.status = SlacStatus::UNMATCHED;
                                 return afb_error!(
-                                    "session-check-match",
-                                    "timeout while waiting match",
+                                    "session-check-timeout",
+                                    "slac_match",
                                 )
                             }
-
                             _ => SlacRequest::CM_NONE, // waiting command as no chaining
                         }
                     } else {
@@ -313,10 +318,10 @@ impl SlacSession {
             }
         };
 
-        // PEV should respond with CM_SLAC_PARAM.REQ
+        // PEV does not receive/respond to this request?
         self.set_status(
-            SlacRequest::CM_SLAC_PARAM,
-            SlacStatus::WAITING,
+            SlacRequest::CM_NONE,
+            SlacStatus::IDLE,
             self.config.timeout,
         )?;
         Ok(())

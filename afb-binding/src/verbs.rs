@@ -18,7 +18,7 @@ use slac::prelude::*;
 use typesv4::prelude::*;
 
 #[derive(Clone, Copy)]
-enum SlacRqt {
+enum SlacAction {
     Check,
     Clear,
     None,
@@ -26,7 +26,7 @@ enum SlacRqt {
 
 struct JobPostCtx {
     slac: Rc<SlacSession>,
-    request: Rc<Cell<SlacRqt>>,
+    action: Rc<Cell<SlacAction>>,
 }
 AfbJobRegister!(JobPostCtrl, jobpost_callback, JobPostCtx);
 fn jobpost_callback(
@@ -34,18 +34,26 @@ fn jobpost_callback(
     _signal: i32,
     ctx: &mut JobPostCtx,
 ) -> Result<(), AfbError> {
-    let request = ctx.request.get();
+    let request = ctx.action.get();
     match request {
-        SlacRqt::Clear => ctx.slac.evse_clear_key(),
-        SlacRqt::Check => ctx.slac.send_set_key_req(),
+        SlacAction::Clear => {}
+        SlacAction::Check => {
+            // move status to wait slac_param until timeout
+            ctx.slac.set_status(
+                SlacRequest::CM_SLAC_PARAM,
+                SlacStatus::WAITING,
+                ctx.slac.config.timeout,
+            )?;
+        }
 
-        _ => Ok(()),
+        _ => {}
     }
+    Ok(())
 }
 
 struct IecEvtCtx {
     job_post: &'static AfbSchedJob,
-    request: Rc<Cell<SlacRqt>>,
+    action: Rc<Cell<SlacAction>>,
 }
 
 AfbEventRegister!(IsoEvtVerb, evt_iec6185_cb, IecEvtCtx);
@@ -55,15 +63,15 @@ fn evt_iec6185_cb(
     ctx: &mut IecEvtCtx,
 ) -> Result<(), AfbError> {
     // ignore any event other than plug status
-    let iecmsg= args.get::<&Iec6185Msg>(0)?;
-    afb_log_msg!(Debug,event, "{:?}", iecmsg);
+    let iecmsg = args.get::<&Iec6185Msg>(0)?;
+    afb_log_msg!(Debug, event, "{:?}", iecmsg);
     match iecmsg {
         Iec6185Msg::Plugged(connected) => {
             if *connected {
-                ctx.request.set(SlacRqt::Check);
+                ctx.action.set(SlacAction::Check);
                 ctx.job_post.post(0)?;
             } else {
-                ctx.request.set(SlacRqt::Clear);
+                ctx.action.set(SlacAction::Clear);
                 ctx.job_post.post(0)?;
             }
         }
@@ -96,9 +104,9 @@ fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Res
         match payload {
             SlacPayload::SlacParmCnf(_payload) => {
                 ctx.event.push(SlacStatus::JOINING);
-            },
-            SlacPayload::SlacMatchReq(_payload) => {},
-            SlacPayload::SlacMatchCnf(_payload) => {},
+            }
+            SlacPayload::SlacMatchReq(_payload) => {}
+            SlacPayload::SlacMatchCnf(_payload) => {}
             _ => {}
         }
     }
@@ -107,18 +115,46 @@ fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Res
 
 struct TimerCtx {
     slac: Rc<SlacSession>,
+    event: &'static AfbEvent,
 }
 // timer sessions maintain pending sessions when needed
 AfbTimerRegister!(TimerCtrl, timer_callback, TimerCtx);
 fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result<(), AfbError> {
-    let action = ctx.slac.check()?;
-    afb_log_msg!(
-        Info,
-        timer,
-        "iface:{} tic:{}",
-        ctx.slac.get_iface(),
-        format!("{:?}", action)
-    );
+    match ctx.slac.check() {
+        Ok(next) => {
+            afb_log_msg!(
+                Debug,
+                timer,
+                "iface:{} next:{}",
+                ctx.slac.get_iface(),
+                format!("{:?}", next)
+            );
+        }
+        Err(error) => {
+            afb_log_msg!(Debug, timer, "{}", error);
+            ctx.event.push(ctx.slac.get_status()?);
+        }
+    }
+    Ok(())
+}
+
+
+struct SubscribeData {
+    event: &'static AfbEvent,
+}
+AfbVerbRegister!(SubscribeCtrl, subscribe_callback, SubscribeData);
+fn subscribe_callback(
+    request: &AfbRequest,
+    args: &AfbData,
+    ctx: &mut SubscribeData,
+) -> Result<(), AfbError> {
+    let subcription = args.get::<bool>(0)?;
+    if subcription {
+        ctx.event.subscribe(request)?;
+    } else {
+        ctx.event.unsubscribe(request)?;
+    }
+    request.reply(AFB_NO_DATA, 0);
     Ok(())
 }
 
@@ -146,17 +182,20 @@ pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbErr
     AfbTimer::new(config.uid)
         .set_period(config.slac.timeout)
         .set_decount(0)
-        .set_callback(Box::new(TimerCtx { slac: slac.clone() }))
+        .set_callback(Box::new(TimerCtx {
+            slac: slac.clone(),
+            event,
+        }))
         .start()?;
 
     // share slac request from event to async callback
-    let request = Rc::new(Cell::new(SlacRqt::None));
+    let action = Rc::new(Cell::new(SlacAction::None));
 
     let job_post = AfbSchedJob::new("iec6185-job")
         .set_exec_watchdog(2) // limit exec time to 200ms;
         .set_callback(Box::new(JobPostCtx {
             slac: slac.clone(),
-            request: request.clone(),
+            action: action.clone(),
         }))
         .finalize();
 
@@ -169,11 +208,18 @@ pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbErr
         )))
         .set_callback(Box::new(IecEvtCtx {
             job_post,
-            request: request.clone(),
+            action: action.clone(),
         }))
         .finalize()?;
 
+    let subscribe = AfbVerb::new("subscribe")
+        .set_callback(Box::new(SubscribeCtrl { event }))
+        .set_info("subscribe Iec6185 event")
+        .set_usage("true|false")
+        .finalize()?;
+
     // register verb, event & handler into api
+    api.add_verb(subscribe);
     api.add_evt_handler(iso_handle);
     api.add_event(event);
 

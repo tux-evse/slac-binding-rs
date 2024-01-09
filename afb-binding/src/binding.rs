@@ -137,7 +137,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     let timeout = if let Ok(value) = jconf.get::<u32>("timeout") {
         value
     } else {
-        60
+        20
     };
 
     let timetic = if let Ok(value) = jconf.get::<u32>("timetic") {

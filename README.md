@@ -24,8 +24,8 @@ This code is freely inspired from differences open-sources references:
  * NMK: Network MemberShip Key
  * NID: Network Identifier (7 bytes)
  * SNID: Short Network ID (4bits)
- * PEV: Plug-In Electric Vehicule
- * EVSE: Electric Vehicle Supply Equipment
+ * PEV: Plug-In Electric Vehicle
+ * EVSE: Electric Vehicle Supply Equipment (charger)
  * CCo Capability (CCoCap) Spec: 4.4.3.14 p155
  * HLE: Higher Layer Entity spec: 11.1 p 467
  * HPGP: Homeplug Green PHY
