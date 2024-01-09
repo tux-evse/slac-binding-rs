@@ -185,11 +185,8 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         .set_permission(acls)
         .set_callback(Box::new(ApiUserData { iec_api }));
 
-    // update root api because we need it within iec event handler
-    api.set_apiv4(rootv4);
-
     // register verbs and events
-    register(api, api_config)?;
+    register(rootv4,api, api_config)?;
 
     // request iec6185 micro service api and finalize api
     api.require_api(iec_api);

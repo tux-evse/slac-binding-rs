@@ -116,6 +116,8 @@ fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Res
 struct TimerCtx {
     slac: Rc<SlacSession>,
     event: &'static AfbEvent,
+    rootv4: AfbApiV4,
+    iec_api: &'static str,
 }
 // timer sessions maintain pending sessions when needed
 AfbTimerRegister!(TimerCtrl, timer_callback, TimerCtx);
@@ -131,8 +133,11 @@ fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result
             );
         }
         Err(error) => {
+            // slac fail let's notify firmware
+            let status= ctx.slac.get_status()?;
             afb_log_msg!(Debug, timer, "{}", error);
-            ctx.event.push(ctx.slac.get_status()?);
+            AfbSubCall::call_sync(ctx.rootv4, ctx.iec_api, "slac", status)?;
+            ctx.event.push(status);
         }
     }
     Ok(())
@@ -158,7 +163,7 @@ fn subscribe_callback(
     Ok(())
 }
 
-pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbError> {
+pub(crate) fn register(rootv4: AfbApiV4, api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbError> {
     // one afb event per slac
     let iface = config.slac.iface;
     let event = AfbEvent::new(config.event);
@@ -185,6 +190,9 @@ pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbErr
         .set_callback(Box::new(TimerCtx {
             slac: slac.clone(),
             event,
+            rootv4,
+            iec_api: config.iec_api,
+
         }))
         .start()?;
 

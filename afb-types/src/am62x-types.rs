@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use afbv4::prelude::*;
 
 AfbDataConverter!(iec6185_msg, Iec6185Msg);
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase", untagged)]
 pub enum Iec6185Msg {
     Plugged(bool),
