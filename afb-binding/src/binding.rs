@@ -22,6 +22,7 @@ pub(crate) fn to_static_str(value: String) -> &'static str {
 pub struct ApiConfig {
     pub uid: &'static str,
     pub slac: SessionConfig,
+    pub event: &'static str,
     pub iec_api: &'static str,
     pub iec_evt: &'static str,
 }
@@ -67,10 +68,18 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     am62x_registers()?;
     slac_registers()?;
 
-    let uid = if let Ok(value) = jconf.get::<String>("uid") {
+    let uid = to_static_str(jconf.get::<String>("uid")?);
+
+    let api = if let Ok(value) = jconf.get::<String>("api") {
         to_static_str(value)
     } else {
-        "slac"
+        uid
+    };
+
+    let event = if let Ok(value) = jconf.get::<String>("event") {
+        to_static_str(value)
+    } else {
+        uid
     };
 
     let info = if let Ok(value) = jconf.get::<String>("info") {
@@ -164,13 +173,14 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
 
     let api_config = ApiConfig {
         uid,
+        event,
         iec_api,
         iec_evt,
         slac: slac_config,
     };
 
     // create a new api
-    let api = AfbApi::new(uid)
+    let api = AfbApi::new(api)
         .set_info(info)
         .set_permission(acls)
         .set_callback(Box::new(ApiUserData { iec_api }));

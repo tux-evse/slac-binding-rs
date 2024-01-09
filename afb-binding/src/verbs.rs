@@ -161,7 +161,7 @@ fn subscribe_callback(
 pub(crate) fn register(api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbError> {
     // one afb event per slac
     let iface = config.slac.iface;
-    let event = AfbEvent::new("iso");
+    let event = AfbEvent::new(config.event);
 
     // create afb/slac slac session and exchange keys
     let slac = Rc::new(SlacSession::new(iface, &config.slac)?);

@@ -2,7 +2,8 @@
   "binding": [
     {
         "uid": "slac-api",
-        "name": "alc",
+        "api": "slac",
+        "event": "iso203",
         "path": "/usr/redpesk/slac-binding-rs/lib/libafb_slac.so",
         "info": "RUST Slac ISO15118-3",
         "iec6185_api": "am62x",
