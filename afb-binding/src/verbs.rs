@@ -166,7 +166,7 @@ fn subscribe_callback(
 pub(crate) fn register(rootv4: AfbApiV4, api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbError> {
     // one afb event per slac
     let iface = config.slac.iface;
-    let event = AfbEvent::new(config.event);
+    let event = AfbEvent::new("evt");
 
     // create afb/slac slac session and exchange keys
     let slac = Rc::new(SlacSession::new(iface, &config.slac)?);
@@ -211,8 +211,8 @@ pub(crate) fn register(rootv4: AfbApiV4, api: &mut AfbApi, config: ApiConfig) ->
     let iso_handle = AfbEvtHandler::new("iec6185-evt")
         .set_info("iec6185 event from ti-am62x binding")
         .set_pattern(to_static_str(format!(
-            "{}/{}",
-            config.iec_api, config.iec_evt
+            "{}/*",
+            config.iec_api
         )))
         .set_callback(Box::new(IecEvtCtx {
             job_post,

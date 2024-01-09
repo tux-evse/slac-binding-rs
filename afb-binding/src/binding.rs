@@ -22,9 +22,7 @@ pub(crate) fn to_static_str(value: String) -> &'static str {
 pub struct ApiConfig {
     pub uid: &'static str,
     pub slac: SessionConfig,
-    pub event: &'static str,
     pub iec_api: &'static str,
-    pub iec_evt: &'static str,
 }
 
 impl AfbApiControls for ApiConfig {
@@ -76,12 +74,6 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         uid
     };
 
-    let event = if let Ok(value) = jconf.get::<String>("event") {
-        to_static_str(value)
-    } else {
-        uid
-    };
-
     let info = if let Ok(value) = jconf.get::<String>("info") {
         to_static_str(value)
     } else {
@@ -120,21 +112,12 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         ));
     }
 
-    let iec_api = if let Ok(value) = jconf.get::<String>("iec6185_api") {
+    let iec_api = if let Ok(value) = jconf.get::<String>("iec_api") {
         to_static_str(value)
     } else {
         return Err(AfbError::new(
             "binding-iec6185-config",
             "iec6185 micro service api SHOULD be defined",
-        ));
-    };
-
-    let iec_evt = if let Ok(value) = jconf.get::<String>("iec6185_evt") {
-        to_static_str(value)
-    } else {
-        return Err(AfbError::new(
-            "binding-iec6185-config",
-            "iec6185 micro service event name SHOULD be defined",
         ));
     };
 
@@ -173,9 +156,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
 
     let api_config = ApiConfig {
         uid,
-        event,
         iec_api,
-        iec_evt,
         slac: slac_config,
     };
 
