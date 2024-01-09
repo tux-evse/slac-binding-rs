@@ -103,7 +103,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     };
     if value.len() != SLAC_STATID_LEN {
         return Err(AfbError::new(
-            "binding-session-config",
+            "binding-slac-config",
             format!(
                 "Invalid evseid len (should be {} Byte not{}",
                 SLAC_STATID_LEN,
@@ -116,7 +116,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         to_static_str(value)
     } else {
         return Err(AfbError::new(
-            "binding-iec6185-config",
+            "binding-slac-config",
             "iec6185 micro service api SHOULD be defined",
         ));
     };
