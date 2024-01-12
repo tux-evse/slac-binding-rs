@@ -1,0 +1,141 @@
+[33mcommit 3e54668a64684d5acb5df875b67d428e00f14988[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Merge: b282714 08d0aa0
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Thu Jan 4 15:52:26 2024 +0100
+
+    merge
+    Merge branch 'main' of github.com:tux-evse/slac-binding-rs
+
+[33mcommit b2827147fbcc7b84647387f735b3caefbd6e0fea[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Thu Jan 4 15:46:08 2024 +0100
+
+    WIP
+
+[33mcommit 08d0aa0fa4e74e99d76d1bc7299af877493d0b92[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Wed Jan 3 22:21:29 2024 +0100
+
+    WIP
+
+[33mcommit 7055db3dceac8d089d74bc64c537927d04d5b5ce[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Wed Dec 13 12:34:03 2023 +0100
+
+    Added rpath search
+
+[33mcommit 9fc73c8c9987286ebcdc5f5e8ebe8ef2d2835df1[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Tue Dec 12 19:10:33 2023 +0100
+
+    Started charging manger interaction (WIP)
+
+[33mcommit 57e8952c2cd46d5e3f7d21538d83dd4df58484bd[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Tue Dec 12 15:02:22 2023 +0100
+
+    add caller track to capi
+
+[33mcommit 5c4024dc270922a9f3bbb68bc801c320f67d9f0a[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Tue Dec 12 15:01:17 2023 +0100
+
+    moved to afb_error! pattern
+
+[33mcommit e9cbb9b25421089ad7d076b246b00d1bc7fd8023[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Tue Nov 14 21:58:39 2023 +0100
+
+    move to raw::c_char
+
+[33mcommit e1a7f901e43fe5b32ddc2bcb0cc2ee96352442be[m[33m ([m[1;31morigin/sandbox/ronan/RP_first_build[m[33m)[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Fri Nov 10 17:35:54 2023 +0100
+
+    fix build
+    
+    Signed-off-by: Fulup Ar Foll <fulup@iot.bzh>
+
+[33mcommit 9727d42539b55d48543ad03c69e8cbfc4d66e0b6[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Fri Nov 10 15:31:54 2023 +0100
+
+    remove cchar warning
+
+[33mcommit c2ac40ed31d24969638e3248b895b02902e8c9e2[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Fri Nov 10 14:37:03 2023 +0100
+
+    fix afbv4 new dependenci model
+
+[33mcommit 80b72c75b192588a920b601e78a83bb52d4fc05c[m
+Author: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date:   Tue Sep 26 09:31:59 2023 +0200
+
+    Update lib name libafb to afbv4
+    
+    Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+
+[33mcommit 6001a7d331d50b9e9be8cbc52e2bbd781eaf9227[m[33m ([m[1;31morigin/Fulup-Dev[m[33m)[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Tue Sep 26 11:14:04 2023 +0200
+
+    clear warning
+
+[33mcommit 707e4ca0631607b8afaf11e107d92417626ec1c1[m
+Author: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date:   Tue Sep 26 10:06:37 2023 +0200
+
+    Add cchar to fix build cross arch
+    
+    Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+
+[33mcommit 98314a36f2a4319eba789a6653f13dab5e7a35df[m
+Author: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date:   Tue Sep 26 09:43:20 2023 +0200
+
+    Fix rust type
+    
+    Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+
+[33mcommit 9f2b480dcc348de85b0ef4720facb98eb93d44a0[m
+Author: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date:   Tue Sep 26 09:31:59 2023 +0200
+
+    Add cchar to fix build cross arch
+    
+    Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+
+[33mcommit 6222b96d2940929c6e001a0aff05d32f2a576cac[m
+Author: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date:   Mon Sep 25 14:09:53 2023 +0200
+
+    Add extern crate libafb
+    
+    Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+
+[33mcommit 6a4ab71485bc23702ad8480f5017870095ed4652[m
+Author: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date:   Mon Sep 25 10:12:33 2023 +0200
+
+    Remove hard link dep.
+    
+    Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+
+[33mcommit 3fe8bee3c5933fb5d998dae63f470e6911b35e1b[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Thu Aug 31 15:26:41 2023 +0200
+
+    rename README
+
+[33mcommit d19488df8e4d581c436123a73dc7531d79e77ffe[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Thu Aug 31 15:25:56 2023 +0200
+
+    Initial commit
+
+[33mcommit c2e12b6cb91bfca709d8a0bbbe4550f2fd2d5713[m
+Author: Fulup Ar Foll <fulup@iot.bzh>
+Date:   Thu Aug 31 15:24:02 2023 +0200
+
+    Initial commit

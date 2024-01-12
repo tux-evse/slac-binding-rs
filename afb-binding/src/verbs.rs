@@ -36,9 +36,12 @@ fn jobpost_callback(
 ) -> Result<(), AfbError> {
     let request = ctx.action.get();
     match request {
-        SlacAction::Clear => {}
+        SlacAction::Clear => {
+            ctx.slac.evse_clear_key()?;
+        }
         SlacAction::Check => {
-            // move status to wait slac_param until timeout
+            // plug is connected stry to initiate Slac negotiation
+            ctx.slac.send_set_key_req()?;
             ctx.slac.set_status(
                 SlacRequest::CM_SLAC_PARAM,
                 SlacStatus::WAITING,
@@ -171,7 +174,7 @@ pub(crate) fn register(rootv4: AfbApiV4, api: &mut AfbApi, config: ApiConfig) ->
     // create afb/slac slac session and exchange keys
     let slac = Rc::new(SlacSession::new(iface, &config.slac)?);
     slac.evse_clear_key()?;
-    slac.send_set_key_req()?;
+
 
     // register dev handler within listening event loop
     AfbEvtFd::new(iface)
