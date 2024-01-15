@@ -119,6 +119,4 @@ For target remote wireshark debug
 * [5] https://docbox.etsi.org/Reference/homeplug_av21/homeplug_av21_specification_final_public.pdf
 * [6]: Synacktiv V2G injector (https://www.sstic.org/media/SSTIC2019/SSTIC-actes/v2g_injector_playing_with_electric_cars_and_chargi/SSTIC2019-Article-v2g_injector_playing_with_electric_cars_and_charging_stations_via_powerline-dudek.pdf)
 
------------- Fulup TBD -----------------
-- Verifier que les data de CM request sont OK
 
