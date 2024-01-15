@@ -188,7 +188,7 @@ pub(crate) fn register(rootv4: AfbApiV4, api: &mut AfbApi, config: ApiConfig) ->
 
     // slac timer check for pending request and clean them up when needed
     AfbTimer::new(config.uid)
-        .set_period(config.slac.timeout)
+        .set_period(config.slac.timetic)
         .set_decount(0)
         .set_callback(Box::new(TimerCtx {
             slac: slac.clone(),
