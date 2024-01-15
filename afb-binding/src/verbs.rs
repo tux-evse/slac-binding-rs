@@ -126,18 +126,21 @@ struct TimerCtx {
 AfbTimerRegister!(TimerCtrl, timer_callback, TimerCtx);
 fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result<(), AfbError> {
     match ctx.slac.check() {
-        Ok(next) => {
-            afb_log_msg!(
-                Debug,
-                timer,
-                "iface:{} next:{}",
-                ctx.slac.get_iface(),
-                format!("{:?}", next)
-            );
-        }
+        Ok(next) => match next {
+            SlacRequest::CM_NONE => {/*ignore*/}
+            _ => {
+                afb_log_msg!(
+                    Debug,
+                    timer,
+                    "slac iface:{} next:{}",
+                    ctx.slac.get_iface(),
+                    format!("{:?}", next)
+                );
+            }
+        },
         Err(error) => {
             // slac fail let's notify firmware
-            let status= ctx.slac.get_status()?;
+            let status = ctx.slac.get_status()?;
             afb_log_msg!(Debug, timer, "{}", error);
             AfbSubCall::call_sync(ctx.rootv4, ctx.iec_api, "slac", status)?;
             ctx.event.push(status);
@@ -145,7 +148,6 @@ fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result
     }
     Ok(())
 }
-
 
 struct SubscribeData {
     event: &'static AfbEvent,
@@ -166,7 +168,11 @@ fn subscribe_callback(
     Ok(())
 }
 
-pub(crate) fn register(rootv4: AfbApiV4, api: &mut AfbApi, config: ApiConfig) -> Result<(), AfbError> {
+pub(crate) fn register(
+    rootv4: AfbApiV4,
+    api: &mut AfbApi,
+    config: ApiConfig,
+) -> Result<(), AfbError> {
     // one afb event per slac
     let iface = config.slac.iface;
     let event = AfbEvent::new("evt");
@@ -174,7 +180,6 @@ pub(crate) fn register(rootv4: AfbApiV4, api: &mut AfbApi, config: ApiConfig) ->
     // create afb/slac slac session and exchange keys
     let slac = Rc::new(SlacSession::new(iface, &config.slac)?);
     slac.evse_clear_key()?;
-
 
     // register dev handler within listening event loop
     AfbEvtFd::new(iface)
@@ -195,7 +200,6 @@ pub(crate) fn register(rootv4: AfbApiV4, api: &mut AfbApi, config: ApiConfig) ->
             event,
             rootv4,
             iec_api: config.iec_api,
-
         }))
         .start()?;
 
@@ -213,10 +217,7 @@ pub(crate) fn register(rootv4: AfbApiV4, api: &mut AfbApi, config: ApiConfig) ->
     // finally subscribe to iec6185 events
     let iso_handle = AfbEvtHandler::new("iec6185-evt")
         .set_info("iec6185 event from ti-am62x binding")
-        .set_pattern(to_static_str(format!(
-            "{}/*",
-            config.iec_api
-        )))
+        .set_pattern(to_static_str(format!("{}/*", config.iec_api)))
         .set_callback(Box::new(IecEvtCtx {
             job_post,
             action: action.clone(),
