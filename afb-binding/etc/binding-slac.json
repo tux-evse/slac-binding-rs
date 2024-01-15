@@ -7,7 +7,9 @@
         "path": "/usr/redpesk/slac-binding-rs/lib/libafb_slac.so",
         "info": "RUST Slac ISO15118-3",
         "iec_api": "am62x",
-        "iso_itf": "eth2"
+        "iso_itf": "eth2",
+        "timeout": 20,
+        "timetic": 3
     }
   ]
 }

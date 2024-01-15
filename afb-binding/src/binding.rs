@@ -105,22 +105,14 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         return Err(AfbError::new(
             "binding-slac-config",
             format!(
-                "Invalid evseid len (should be {} Byte not{}",
+                "Invalid evseid len (should be {} Byte not {}",
                 SLAC_STATID_LEN,
                 value.len()
             ),
         ));
     }
 
-    let iec_api = if let Ok(value) = jconf.get::<String>("iec_api") {
-        to_static_str(value)
-    } else {
-        return Err(AfbError::new(
-            "binding-slac-config",
-            "iec6185 micro service api SHOULD be defined",
-        ));
-    };
-
+    let iec_api = to_static_str(jconf.get::<String>("iec_api")?);
     let mut evseid: SlacStaId = [0; SLAC_STATID_LEN];
     for idx in 0..evseid.len() {
         evseid[idx] = value.as_bytes()[idx];
