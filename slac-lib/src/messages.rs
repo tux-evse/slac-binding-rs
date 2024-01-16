@@ -614,8 +614,8 @@ impl SlacRawMsg {
     // parse message header and return a Rust typed payload
     pub fn parse<'a>(&'a self) -> Result<SlacPayload, AfbError> {
         const CM_SET_KEY: u16 = cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_CNF;
-        const CM_START_ATTEN: u16 = cglue::MMTYPE_CM_START_ATTEN_CHAR | cglue::MMTYPE_MODE_RSP;
-        const CM_SLAC_PARAM: u16 = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF;
+        const CM_START_ATTEN: u16 = cglue::MMTYPE_CM_START_ATTEN_CHAR ;
+        const CM_SLAC_PARAM: u16 = cglue::MMTYPE_CM_SLAC_PARAM;
 
         let payload = match self.homeplug.get_mmtype() {
             CM_SET_KEY => {
@@ -631,7 +631,7 @@ impl SlacRawMsg {
 
             CM_SLAC_PARAM => SlacPayload::SlacParmCnf(unsafe { &self.payload.slac_parm_cnf }),
 
-            _ => return afb_error!("slac-msg-parse", "unsupport message mmype"),
+            _ => return afb_error!("slac-msg-parse", "unsupport message mmype:{}", self.homeplug.get_mmtype()),
         };
         Ok(payload)
     }

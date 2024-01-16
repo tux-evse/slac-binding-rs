@@ -100,15 +100,17 @@ done
 # sudo ip dev dev br0,vethA,...
 ```
 
-lancer wireshark sur interface veth-xx
+Native wireshark debug on interface veth-xx
 ```
-# note on OpenSuse sudo fail to start wireshark
+# if you're not member of wireshark group use su
 su -c  "wireshark -i vethA -k -S"
 ```
 
-For target remote wireshark debug
- #warning on host you need to be member of wireshark group or use su as in previous native case
- ssh root@phytec-power "tcpdump -s0 -U -n -w - -i eth2 " | usermod -a -G wireshark fulup ^Creshark -i -
+Target remote wireshark debug
+```
+ssh root@phytec-power.tuxevse.vpn "tcpdump -s0 -U -n -w - -i eth2" | wireshark -i -
+```
+WARNING/ on host you need to be member of wireshark group or use su as in previous native case
 
 ## Reference
 
