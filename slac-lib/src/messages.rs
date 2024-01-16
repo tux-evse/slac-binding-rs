@@ -629,7 +629,7 @@ impl SlacRawMsg {
                 SlacPayload::StartAttentCharInd(unsafe { &self.payload.start_atten_char_ind })
             }
 
-            CM_SLAC_PARAM => SlacPayload::SlacParmCnf(unsafe { &self.payload.slac_parm_cnf }),
+            CM_SLAC_PARAM => SlacPayload::SlacParmReq(unsafe { &self.payload.slac_parm_req }),
 
             _ => return afb_error!("slac-msg-parse", "unsupport message mmype:{}", self.homeplug.get_mmtype()),
         };
