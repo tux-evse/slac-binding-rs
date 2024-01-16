@@ -26,9 +26,8 @@ use std::mem;
 use std::time::Instant;
 
 use crate::prelude::*;
-use typesv4::prelude::*;
 use afbv4::prelude::*;
-
+use typesv4::prelude::*;
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]
@@ -153,12 +152,7 @@ impl SlacSession {
     ) -> Result<(), AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:set_status");
         match self.state.try_borrow_mut() {
-            Err(_) => {
-                return afb_error!(
-                    "session-update-state",
-                    "fail to access state",
-                )
-            }
+            Err(_) => return afb_error!("session-update-state", "fail to access state",),
             Ok(mut state) => {
                 state.pending = rqt;
                 state.timeout = timeout;
@@ -224,12 +218,9 @@ impl SlacSession {
                     if elapse > state.timeout as u128 {
                         match state.pending {
                             SlacRequest::CM_SLAC_PARAM => {
-                                 state.status = SlacStatus::TIMEOUT;
-                                 return afb_error!(
-                                    "session-check-timeout",
-                                    "slac_param",
-                                )
-                            },
+                                state.status = SlacStatus::TIMEOUT;
+                                return afb_error!("session-check-timeout", "slac_param",);
+                            }
                             SlacRequest::CM_MNBC_SOUND => {
                                 for idx in 0..state.avg_groups as usize {
                                     state.avg_attn[idx] = state.avg_attn[idx] / state.agv_count;
@@ -238,10 +229,7 @@ impl SlacSession {
                             }
                             SlacRequest::CM_SLAC_MATCH => {
                                 state.status = SlacStatus::UNMATCHED;
-                                return afb_error!(
-                                    "session-check-timeout",
-                                    "slac_match",
-                                )
+                                return afb_error!("session-check-timeout", "slac_match",);
                             }
                             _ => SlacRequest::CM_NONE, // waiting command as no chaining
                         }
@@ -305,12 +293,7 @@ impl SlacSession {
         };
 
         match self.state.try_borrow_mut() {
-            Err(_) => {
-                return afb_error!(
-                    "session-send-param-req",
-                    "fail to access state",
-                )
-            }
+            Err(_) => return afb_error!("session-send-param-req", "fail to access state",),
             Ok(mut state) => {
                 payload.send(&self.socket, &ATHEROS_ADDR)?;
                 state.nonce = nonce;
@@ -319,11 +302,7 @@ impl SlacSession {
         };
 
         // PEV does not receive/respond to this request?
-        self.set_status(
-            SlacRequest::CM_NONE,
-            SlacStatus::IDLE,
-            self.config.timeout,
-        )?;
+        self.set_status(SlacRequest::CM_NONE, SlacStatus::IDLE, self.config.timeout)?;
         Ok(())
     }
 
@@ -331,12 +310,7 @@ impl SlacSession {
     pub fn send_param_cnf(&self) -> Result<(), AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:send_param_cnf");
         match self.state.try_borrow() {
-            Err(_) => {
-                return afb_error!(
-                    "session-send-param-req",
-                    "fail to access state",
-                )
-            }
+            Err(_) => return afb_error!("session-send-param-req", "fail to access state",),
             Ok(state) => {
                 let payload = SlacParmCnf {
                     application_type: state.application_type,
@@ -366,12 +340,7 @@ impl SlacSession {
     pub fn send_atten_char(&self) -> Result<(), AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:send_atten_char");
         match self.state.try_borrow() {
-            Err(_) => {
-                return afb_error!(
-                    "session-send-atten-char",
-                    "fail to access state",
-                )
-            }
+            Err(_) => return afb_error!("session-send-atten-char", "fail to access state",),
             Ok(state) => {
                 let mut agg_group: SlacGroups = [0 as u8; SLAC_AGGGROUP_LEN];
                 for idx in 0..state.avg_groups as usize {
@@ -407,12 +376,7 @@ impl SlacSession {
     pub fn send_slac_match(&self) -> Result<(), AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:send_slac_match");
         match self.state.try_borrow() {
-            Err(_) => {
-                return afb_error!(
-                    "session-send-slac-match",
-                    "fail to access state",
-                )
-            }
+            Err(_) => return afb_error!("session-send-slac-match", "fail to access state",),
             Ok(state) => {
                 let payload = SlacMatchCnf {
                     application_type: state.application_type,
@@ -445,10 +409,10 @@ impl SlacSession {
         match self.state.try_borrow_mut() {
             Err(_) => return afb_error!("session-clear-key", "fail to access state"),
             Ok(mut state) => {
-                    state.nid=[0; SLAC_NID_LEN];
-                    state.pending= SlacRequest::CM_NONE;
-                    state.status=SlacStatus::IDLE;
-                }
+                state.nid = [0; SLAC_NID_LEN];
+                state.pending = SlacRequest::CM_NONE;
+                state.status = SlacStatus::IDLE;
+            }
         }
         Ok(())
     }
@@ -459,15 +423,15 @@ impl SlacSession {
             SlacPayload::SetKeyCnf(payload) => {
                 afb_log_msg!(Notice, None, "SlacPayload::SetKeyCnf");
                 match self.state.try_borrow() {
-                    Err(_) => {
-                        return afb_error!("session-set-key-cnf", "fail to access state")
-                    }
+                    Err(_) => return afb_error!("session-set-key-cnf", "fail to access state"),
                     Ok(state) => {
                         if payload.result != 1 /*bug*/ || payload.your_nonce != state.nonce {
                             return afb_error!(
                                 "session-set-key-cnf",
-                                "invalid payload result:{}, valid-nonces:{}", payload.result, payload.your_nonce == state.nonce
-                            )
+                                "invalid payload result:{}, valid-nonces:{}",
+                                payload.result,
+                                payload.your_nonce == state.nonce
+                            );
                         }
 
                         // Fulup what to do with payload data ???
@@ -503,22 +467,17 @@ impl SlacSession {
                 // terminated [V2G3-A09-19]
                 afb_log_msg!(Notice, None, "SlacPayload::MnbcSoundInd");
                 let remaining = match self.state.try_borrow_mut() {
-                    Err(_) => {
-                        return afb_error!("session-mnbc-sound", "fail to access state")
-                    }
+                    Err(_) => return afb_error!("session-mnbc-sound", "fail to access state"),
                     Ok(mut state) => {
                         if !matches!(state.pending, SlacRequest::CM_MNBC_SOUND) {
-                            return afb_error!("session-mnbc-sound", "No sound expected")
+                            return afb_error!("session-mnbc-sound", "No sound expected");
                         }
 
                         if slice_equal(&payload.run_id, &state.runid)
                             || payload.security_type != state.security_type
                             || payload.application_type != state.application_type
                         {
-                            return afb_error!(
-                                "session-mnbc-sound",
-                                "invalid payload content",
-                            )
+                            return afb_error!("session-mnbc-sound", "invalid payload content",);
                         }
                         state.pevid = payload.pevid;
                         let count = payload.remaining_sound_count;
@@ -546,10 +505,7 @@ impl SlacSession {
                 afb_log_msg!(Notice, None, "SlacPayload::SlacMatchReq");
                 match self.state.try_borrow_mut() {
                     Err(_) => {
-                        return afb_error!(
-                            "session-start-attend-char-ind",
-                            "fail to access state",
-                        )
+                        return afb_error!("session-start-attend-char-ind", "fail to access state",)
                     }
                     Ok(mut state) => {
                         if slice_equal(&payload.run_id, &state.runid)
@@ -559,7 +515,7 @@ impl SlacSession {
                             return afb_error!(
                                 "session-start-attend-char-ind",
                                 "invalid payload content",
-                            )
+                            );
                         }
 
                         // update PEV station identity
@@ -581,10 +537,7 @@ impl SlacSession {
                 afb_log_msg!(Notice, None, "SlacPayload::StartAttentCharInd");
                 match self.state.try_borrow_mut() {
                     Err(_) => {
-                        return afb_error!(
-                            "session-start-attend-char-ind",
-                            "fail to access state",
-                        )
+                        return afb_error!("session-start-attend-char-ind", "fail to access state",)
                     }
                     Ok(mut state) => {
                         if slice_equal(&payload.run_id, &state.runid)
@@ -595,7 +548,7 @@ impl SlacSession {
                             return afb_error!(
                                 "session-start-attend-char-ind",
                                 "invalid payload content",
-                            )
+                            );
                         }
                         state.pevmac = payload.forwarding_sta;
                         state.num_sounds = payload.num_sounds;
@@ -626,30 +579,19 @@ impl SlacSession {
                 // response to AttenCharInd
                 afb_log_msg!(Notice, None, "SlacPayload::AttenCharRsp");
                 match self.state.try_borrow() {
-                    Err(_) => {
-                        return afb_error!(
-                            "session-atten-char-rsp",
-                            "fail to access state",
-                        )
-                    }
+                    Err(_) => return afb_error!("session-atten-char-rsp", "fail to access state",),
                     Ok(state) => {
                         if slice_equal(&payload.run_id, &state.runid)
                             || payload.security_type != state.security_type
                             || payload.application_type != state.application_type
                         {
-                            return afb_error!(
-                                "session-atten-char-rsp",
-                                "invalid payload content",
-                            )
+                            return afb_error!("session-atten-char-rsp", "invalid payload content",);
                         }
                     }
                 };
 
                 if payload.result != 0 {
-                    return afb_error!(
-                        "session-atten-char-rsp",
-                        "invalid result status",
-                    )
+                    return afb_error!("session-atten-char-rsp", "invalid result status",);
                 }
 
                 payload.as_slac_payload()?
@@ -680,18 +622,13 @@ impl SlacSession {
                 // number of sounds before returning;
                 afb_log_msg!(Notice, None, "SlacPayload::AttenProfileInd");
                 match self.state.try_borrow_mut() {
-                    Err(_) => {
-                        return afb_error!(
-                            "session-attend-profile",
-                            "fail to access state",
-                        )
-                    }
+                    Err(_) => return afb_error!("session-attend-profile", "fail to access state",),
                     Ok(mut state) => {
                         if slice_equal(&payload.pev_mac, &state.pevmac) {
                             return afb_error!(
                                 "session-attend-profile",
                                 "invalid source PEV Mac addr",
-                            )
+                            );
                         }
 
                         state.agv_count = state.agv_count + 1;
@@ -704,11 +641,23 @@ impl SlacSession {
                 payload.as_slac_payload()?
             }
 
-            _ => {
-                return afb_error!(
-                    "session-decode",
-                    "unknown homeplug response mimetype ",
-                )
+            SlacPayload::SetKeyReq(payload) => {
+                afb_log_msg!(Notice, None, "SlacPayload::SetKeyCnf");
+                return afb_error!("slac-decode-unsupported", "{}", payload);
+            }
+
+            SlacPayload::SlacMatchCnf(payload) => {
+                afb_log_msg!(Notice, None, "SlacPayload::SlacMatchCnf");
+                return afb_error!("slac-decode-unsupported", "{}", payload);
+            }
+            SlacPayload::SlacParmCnf(payload) => {
+                afb_log_msg!(Notice, None, "SlacPayload::SlacParmCnf");
+                return afb_error!("slac-decode-unsupported", "{}", payload);
+            }
+
+            SlacPayload::AttenCharInd(payload) => {
+                afb_log_msg!(Notice, None, "SlacPayload::AttenCharInd");
+                return afb_error!("slac-decode-unsupported", "{}", payload);
             }
         };
 
