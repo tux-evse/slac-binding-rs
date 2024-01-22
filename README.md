@@ -1,4 +1,5 @@
 # libslac Iso15118-3 binding
+
 =============================
 
 WARNING: on going work, will probably not work for you
@@ -7,6 +8,14 @@ WARNING: on going work, will probably not work for you
 
 * Rust implementation of libslac Iso15118-3
 * afb-binding micro service architecture and security model [api-v4](https://github.com/redpesk-common/afb-librust/blob/master/docs/1-architecture_presentation.md)
+
+## Build command
+
+To build the project on a local computer:
+
+```bash
+cargo build --features  afbv4
+```
 
 ## References
 
@@ -19,16 +28,16 @@ This code is freely inspired from differences open-sources references:
 
 ## Abbreviation
 
- * AVLN/sub-AVLN: AV In-Home Logical Network
- * STA: Network Station
- * NMK: Network MemberShip Key
- * NID: Network Identifier (7 bytes)
- * SNID: Short Network ID (4bits)
- * PEV: Plug-In Electric Vehicle
- * EVSE: Electric Vehicle Supply Equipment (charger)
- * CCo Capability (CCoCap) Spec: 4.4.3.14 p155
- * HLE: Higher Layer Entity spec: 11.1 p 467
- * HPGP: Homeplug Green PHY
+* AVLN/sub-AVLN: AV In-Home Logical Network
+* STA: Network Station
+* NMK: Network MemberShip Key
+* NID: Network Identifier (7 bytes)
+* SNID: Short Network ID (4bits)
+* PEV: Plug-In Electric Vehicle
+* EVSE: Electric Vehicle Supply Equipment (charger)
+* CCo Capability (CCoCap) Spec: 4.4.3.14 p155
+* HLE: Higher Layer Entity spec: 11.1 p 467
+* HPGP: Homeplug Green PHY
 
 ## Few Security Concepts
 
@@ -42,7 +51,8 @@ This code is freely inspired from differences open-sources references:
 * this process require CAP_NET_RAW
 
 To add CAP_NET_RAW to afb-binder use
-```
+
+```bash
 # afb-binder started from bash should have CAP_NET_RAW capability
 sudo setcap cap_net_raw+eip /usr/(local)/bin/afb-binder
 
@@ -56,33 +66,34 @@ sudo setcap cap_net_raw+eip $HOME/.vscode-oss/extensions/vadimcn.vscode-lldb-1.9
 [see Synacktiv V2G] [6]
 
 * STATE: JOIN_NETWORK
-    * EVSE -> HPGP node CM_SET_KEY.REQ
-    * HPGP -> EVSE CM_SET_KEY.CNF
+  * EVSE -> HPGP node CM_SET_KEY.REQ
+  * HPGP -> EVSE CM_SET_KEY.CNF
     Set NID from NMK
 
- * STATE: IDLE/WAITING
-    * PEV  -> EVSE CM_SLAC_PARAM.REQ
-    * EVSE -> PEV CM_SLAC_PARAM.CNF
-        - forwarding_stat (mac addr)
-        - num_sound
-        - timeout
+* STATE: IDLE/WAITING
+  * PEV  -> EVSE CM_SLAC_PARAM.REQ
+  * EVSE -> PEV CM_SLAC_PARAM.CNF
+    * forwarding_stat (mac addr)
+    * num_sound
+    * timeout
 
- * State: SOUNDING/MATCHING
-    * PEV->EVSE CM_MNBC_SOUND.IND (* EVSE requested number of sound)
-    * EVSE -> PEV  CM_ATTEN_CHAR.IND
-    * PEV  -> EVSE CM_ATTEN_CHAR.RSP (msg.result == 0)
-    * PEV  -> EVSE CM_SLAC_MATCH.REQ
+* State: SOUNDING/MATCHING
+  * PEV->EVSE CM_MNBC_SOUND.IND (* EVSE requested number of sound)
+  * EVSE -> PEV  CM_ATTEN_CHAR.IND
+  * PEV  -> EVSE CM_ATTEN_CHAR.RSP (msg.result == 0)
+  * PEV  -> EVSE CM_SLAC_MATCH.REQ
 
- * State: MATCHED
-    * EVSE -> PEV  CM_SLAC_MATCH.CNF
+* State: MATCHED
+  * EVSE -> PEV  CM_SLAC_MATCH.CNF
 
 ## testing with simulator
 
 ### create dummy eth iface
+
 Following script will create a virtual bridge whit two iface (vethA+VethB)
 Any layer2 broadcast packet send on vethA is propagated to vethB
 
-```
+```bash
 // create a virtual bridge for vethA & vethB
 sudo ip link add br0 type bridge
 sudo ip link set br0 up
@@ -101,24 +112,25 @@ done
 ```
 
 Native wireshark debug on interface veth-xx
-```
+
+```bash
 # if you're not member of wireshark group use su
 su -c  "wireshark -i vethA -k -S"
 ```
 
 Target remote wireshark debug
-```
+
+```bash
 ssh root@phytec-power.tuxevse.vpn "tcpdump -s0 -U -n -w - -i eth2" | wireshark -i -
 ```
+
 WARNING/ on host you need to be member of wireshark group or use su as in previous native case
 
 ## Reference
 
-* [1]: Switch PySlac: https://github.com/SwitchEV/pyslac
-* [2]: Pionix SLAC simple library https://github.com/EVerest/libslac
-* [3]: Qualcomm Open-Pcl: https://github.com/qca/open-plc-utils
-* [5] https://docbox.etsi.org/Reference/homeplug_av11/homeplug_av11_specification_final_public.pdf
-* [5] https://docbox.etsi.org/Reference/homeplug_av21/homeplug_av21_specification_final_public.pdf
-* [6]: Synacktiv V2G injector (https://www.sstic.org/media/SSTIC2019/SSTIC-actes/v2g_injector_playing_with_electric_cars_and_chargi/SSTIC2019-Article-v2g_injector_playing_with_electric_cars_and_charging_stations_via_powerline-dudek.pdf)
-
-
+* [1]: Switch PySlac: <https://github.com/SwitchEV/pyslac>
+* [2]: Pionix SLAC simple library <https://github.com/EVerest/libslac>
+* [3]: Qualcomm Open-Pcl: <https://github.com/qca/open-plc-utils>
+* [5] <https://docbox.etsi.org/Reference/homeplug_av11/homeplug_av11_specification_final_public.pdf>
+* [5] <https://docbox.etsi.org/Reference/homeplug_av21/homeplug_av21_specification_final_public.pdf>
+* [6]: Synacktiv V2G injector (<https://www.sstic.org/media/SSTIC2019/SSTIC-actes/v2g_injector_playing_with_electric_cars_and_chargi/SSTIC2019-Article-v2g_injector_playing_with_electric_cars_and_charging_stations_via_powerline-dudek.pdf>)
