@@ -87,6 +87,8 @@ fn evt_iec6185_cb(
 struct AsyncFdCtx {
     slac: Rc<SlacSession>,
     event: &'static AfbEvent,
+    rootv4: AfbApiV4,
+    iec_api: &'static str,
 }
 AfbEvtFdRegister!(SessionAsyncCtrl, async_session_cb, AsyncFdCtx);
 fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Result<(), AfbError> {
@@ -105,8 +107,12 @@ fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Res
         );
 
         match payload {
-            SlacPayload::SlacParmCnf(_payload) => {
+            SlacPayload::SetKeyCnf(_payload) => {
                 ctx.event.push(SlacStatus::JOINING);
+                // Fulup Done by firm ? AfbSubCall::call_sync(ctx.rootv4, ctx.iec_api, "set_pwm", "{'action':'on', 'duty':0.05}")?;
+            }
+            SlacPayload::SlacParmCnf(_payload) => {
+                ctx.event.push(SlacStatus::MATCHING);
             }
             SlacPayload::SlacMatchReq(_payload) => {}
             SlacPayload::SlacMatchCnf(_payload) => {}
@@ -188,6 +194,8 @@ pub(crate) fn register(
         .set_callback(Box::new(AsyncFdCtx {
             slac: slac.clone(),
             event,
+            rootv4,
+            iec_api: config.iec_api,
         }))
         .start()?;
 
