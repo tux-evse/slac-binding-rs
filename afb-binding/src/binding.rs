@@ -15,7 +15,6 @@ use afbv4::prelude::*;
 use slac::prelude::*;
 use typesv4::prelude::*;
 
-
 pub struct ApiConfig {
     pub uid: &'static str,
     pub slac: SessionConfig,
@@ -63,41 +62,17 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     am62x_registers()?;
     slac_registers()?;
 
-    let uid = to_static_str(jconf.get::<String>("uid")?);
+    let uid = jconf.get::<&'static str>("uid")?;
+    let api =jconf.default::<&'static str>("api",uid) ?;
+    let info = jconf.default::<&'static str>("info","")?;
+    let iso_itf = jconf.default::<&'static str>("iso_itf", "eth2")?;
 
-    let api = if let Ok(value) = jconf.get::<String>("api") {
-        to_static_str(value)
-    } else {
-        uid
-    };
-
-    let info = if let Ok(value) = jconf.get::<String>("info") {
-        to_static_str(value)
-    } else {
-        ""
-    };
-
-    let iso_itf = if let Ok(value) = jconf.get::<String>("iso_itf") {
-        to_static_str(value)
-    } else {
-        "br0"
-    };
-
-    let value = if let Ok(value) = jconf.get::<String>("nmk") {
-        to_static_str(value)
-    } else {
-        // for debug use Qualcomm open-plc-utils NMK value
-        "50:D3:E4:93:3F:85:5B:70:40:78:4D:F8:15:AA:8D:B7"
-    };
+    let value = jconf.default::<&'static str>("nmk", "50:D3:E4:93:3F:85:5B:70:40:78:4D:F8:15:AA:8D:B7")?;
     // translate from hexa string to byte array
     let mut nmk: SlacNmk = [0; SLAC_NMK_LEN];
     hexa_to_byte(value, &mut nmk)?;
 
-    let value = if let Ok(value) = jconf.get::<String>("evseid") {
-        to_static_str(value)
-    } else {
-        ":Tux::EvSe:0x0000"
-    };
+    let value = jconf.default::<&'static str>("evseid", ":Tux::EvSe:0x0000")?;
     if value.len() != SLAC_STATID_LEN {
         return Err(AfbError::new(
             "binding-slac-config",
@@ -109,31 +84,14 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         ));
     }
 
-    let iec_api = to_static_str(jconf.get::<String>("iec_api")?);
+    let iec_api = jconf.get::<&'static str>("iec_api")?;
     let mut evseid: SlacStaId = [0; SLAC_STATID_LEN];
     for idx in 0..evseid.len() {
         evseid[idx] = value.as_bytes()[idx];
     }
 
-    let timeout = if let Ok(value) = jconf.get::<u32>("timeout") {
-        value
-    } else {
-        20
-    };
-
-    let timetic = if let Ok(value) = jconf.get::<u32>("timetic") {
-        value
-    } else {
-        3
-    };
-
-    let acls = if let Ok(value) = jconf.get::<String>("acls") {
-        AfbPermission::new(to_static_str(value))
-    } else {
-        AfbPermission::new("acl:rmsg:ti")
-    };
-
-    // NID and NMK should
+    let timeout = jconf.default::<u32>("timeout", 20)?;
+    let timetic = jconf.default::<u32>("timetic", 3)?;
 
     let slac_config = SessionConfig {
         iface:iso_itf,
@@ -152,7 +110,6 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     // create a new api
     let api = AfbApi::new(api)
         .set_info(info)
-        .set_permission(acls)
         .set_callback(Box::new(ApiUserData { iec_api }));
 
     // register verbs and events
@@ -160,6 +117,16 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
 
     // request iec6185 micro service api and finalize api
     api.require_api(iec_api);
+
+    // if acls set apply them
+    if let Ok(value) = jconf.get::<String>("permission") {
+        let perm = to_static_str(value);
+        api.set_permission(AfbPermission::new(perm));
+    };
+
+    if let Ok(value) = jconf.get::<i32>("verbosity") {
+        api.set_verbosity(value);
+    };
 
     // freeze & activate api
     Ok(api.finalize()?)

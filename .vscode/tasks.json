@@ -2,13 +2,37 @@
 	"version": "2.0.0",
 	"tasks": [
         {
-            "label": "slac-native-build",
+            "label": "binding-native-build",
+            "type": "cargo",
+            "command": "build",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "test-native-build",
+            "type": "cargo",
+            "command": "build",
+            "args": [
+                "--example",
+                "slac_test"
+            ],
+            "dependsOn": [
+                "binding-native-build"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
             "type": "cargo",
             "command": "build",
             "problemMatcher": [
                 "$rustc"
             ],
             "group": "build",
+            "label": "rust: cargo build"
         }
     ]
 }

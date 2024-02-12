@@ -1,0 +1,20 @@
+[package]
+name = "slac-test"
+version = "0.1.0"
+authors = ["fulup@iot.bzh"]
+build = "etc/build.rs"
+edition = "2021"
+
+[dependencies]
+afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
+serde = { version = "1.0", features = ["derive"] }
+serde_json={ version= "1.0"}
+slac= {path ="../slac-lib"}
+typesv4= {path ="../afb-types"}
+
+[[example]]
+# optional test use:  clear && cargo build --example slac_test
+name = "slac_test"
+crate-type = ["cdylib"]
+path = "src/libso.rs"
+

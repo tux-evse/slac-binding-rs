@@ -4,6 +4,6 @@ resolver = "2"
 members = [
     "afb-binding",
     "afb-types",
+    "afb-test",
     "slac-lib",
 ]
-

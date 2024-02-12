@@ -5,23 +5,25 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Native 'afb-slac'",
+            "name": "Native-test-slac",
             "type": "lldb",
-            "preLaunchTask": "slac-native-build",
+            "preLaunchTask": "test-native-build",
             "request": "launch",
             "program": "afb-binder",
             "env": {
                 "LD_LIBRARY_PATH": "/usr/local/lib64"
             },
             "args": [
-                "-vvv","--monitoring",
+                "-v",
+                "--monitoring",
                 "--trap-faults=0",
-                "--config=afb-binding/etc/binding-test.json",
+                "--config=afb-binding/etc/binder-slac.json",
+                "--config=afb-test/etc/binding-test-slac.json",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
                 "target stop-hook add -n _start -o continue",
-                "settings set target.disable-aslr false"
+                "settings set target.disable-aslr false",
             ]
         }
     ]
