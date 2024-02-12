@@ -57,7 +57,7 @@ To add CAP_NET_RAW to afb-binder use
 sudo setcap cap_net_raw+eip /usr/(local)/bin/afb-binder
 
 # when debugging from vscode/codium (use 'ps -ef | grep lldb-server' to find corresponding version)
-sudo setcap cap_net_raw+eip $HOME/.vscode-oss/extensions/vadimcn.vscode-lldb-1.9.2-universal/lldb/bin/lldb-server
+for FILE in $HOME/.vscode-oss/extensions/vadimcn.vscode-lldb*/lldb/bin/lldb-server; do sudo setcap cap_net_raw+eip $FILE; done
 ```
 
 ## General Flow

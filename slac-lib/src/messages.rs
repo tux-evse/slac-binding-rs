@@ -268,7 +268,7 @@ impl SlacParmCnf {
     pub fn send(self, sock: &SockRaw, pevaddr: &SlacIfMac) -> Result<(), AfbError> {
         let rqt = SlacRawMsg {
             ethernet: cglue::ether_header::new(sock, pevaddr),
-            homeplug: cglue::homeplug_header::new(cglue::MMTYPE_CM_SET_KEY),
+            homeplug: cglue::homeplug_header::new(cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF),
             payload: cglue::cm_slac_payload {
                 slac_parm_cnf: self,
             },
@@ -613,25 +613,19 @@ impl SlacRawMsg {
 
     // parse message header and return a Rust typed payload
     pub fn parse<'a>(&'a self) -> Result<SlacPayload, AfbError> {
-        const CM_SET_KEY: u16 = cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_CNF;
-        const CM_START_ATTEN: u16 = cglue::MMTYPE_CM_START_ATTEN_CHAR ;
-        const CM_SLAC_PARAM: u16 = cglue::MMTYPE_CM_SLAC_PARAM;
+
+        // Request mimetype use the same numner but REQ and with 0x0 and CNF with 0x1
+        const CM_SET_KEY_REQ: u16 = cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_REQ;
+        const CM_START_ATTEN: u16 = cglue::MMTYPE_CM_START_ATTEN_CHAR | cglue::MMTYPE_MODE_REQ;
+        const CM_SLAC_PARAM_REQ: u16 = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_REQ;
+        const CM_MNBC_SOUND_IND: u16 = cglue::MMTYPE_CM_MNBC_SOUND | cglue::MMTYPE_MODE_IND;
 
         let payload = match self.homeplug.get_mmtype() {
-            CM_SET_KEY => {
-                //let ptr = unsafe {std::ptr::addr_of!(self.payload.set_key_cnf)};
-                //let val= unsafe { ptr.read_unaligned() };
-                // Fulup added 3 bytes padding to set_key_cnf to avoid read_unaligned()
-                SlacPayload::SetKeyCnf(unsafe { &self.payload.set_key_cnf })
-            }
-
-            CM_START_ATTEN => {
-                SlacPayload::StartAttentCharInd(unsafe { &self.payload.start_atten_char_ind })
-            }
-
-            CM_SLAC_PARAM => SlacPayload::SlacParmReq(unsafe { &self.payload.slac_parm_req }),
-
-            _ => return afb_error!("slac-msg-parse", "unsupport message mmype:{}", self.homeplug.get_mmtype()),
+            CM_SET_KEY_REQ => SlacPayload::SetKeyCnf(unsafe { &self.payload.set_key_cnf }),
+            CM_START_ATTEN => SlacPayload::StartAttentCharInd(unsafe { &self.payload.start_atten_char_ind }),
+            CM_SLAC_PARAM_REQ => SlacPayload::SlacParmReq(unsafe { &self.payload.slac_parm_req }),
+            CM_MNBC_SOUND_IND => SlacPayload::MnbcSoundInd(unsafe { &self.payload.mnbc_sound_ind }),
+            _ => return afb_error!("slac-msg-parse", "unsupport message mmype:{:#04x}", self.homeplug.get_mmtype()),
         };
         Ok(payload)
     }

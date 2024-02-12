@@ -307,10 +307,10 @@ impl SlacSession {
     }
 
     // CM_SLAC_PARAM.CNF
-    pub fn send_param_cnf(&self) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "SlacSession:send_param_cnf");
+    pub fn slac_param_cnf(&self) -> Result<(), AfbError> {
+        afb_log_msg!(Notice, None, "SlacSession:slac_param_cnf");
         match self.state.try_borrow() {
-            Err(_) => return afb_error!("session-send-param-req", "fail to access state",),
+            Err(_) => return afb_error!("session-slac-param-req", "fail to access state",),
             Ok(state) => {
                 let payload = SlacParmCnf {
                     application_type: state.application_type,
@@ -419,22 +419,20 @@ impl SlacSession {
 
     pub fn decode<'a>(&self, msg: &'a SlacRawMsg) -> Result<SlacPayload<'a>, AfbError> {
         let payload = match msg.parse()? {
-            //got CM_SET_KEY.CNF reply CM_SLAC_PARAM.CNF
+            //got CM_SET_KEY.REQ reply CM_SLAC_PARAM.CNF
             SlacPayload::SetKeyCnf(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::SetKeyCnf");
+                afb_log_msg!(Notice, None, "SlacPayload::SetKeyReq");
                 match self.state.try_borrow() {
-                    Err(_) => return afb_error!("session-set-key-cnf", "fail to access state"),
+                    Err(_) => return afb_error!("session-set-key-req", "fail to access state"),
                     Ok(state) => {
                         if payload.result != 1 /*bug*/ || payload.your_nonce != state.nonce {
                             return afb_error!(
-                                "session-set-key-cnf",
+                                "session-set-key-req",
                                 "invalid payload result:{}, valid-nonces:{}",
                                 payload.result,
                                 payload.your_nonce == state.nonce
                             );
                         }
-
-                        // Fulup what to do with payload data ???
                     }
                 }
                 // should we wait for CM_SLAC_PARAM.REQ if then how long
@@ -455,7 +453,7 @@ impl SlacSession {
                     payload.application_type,
                 )?;
 
-                self.send_param_cnf()?;
+                self.slac_param_cnf()?;
                 payload.as_slac_payload()?
             }
 
