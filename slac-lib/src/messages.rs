@@ -46,6 +46,28 @@ pub type SlacStaId = [u8; SLAC_STATID_LEN];
 pub const BROADCAST_ADDR: SlacIfMac = [0xFF; ETHER_ADDR_LEN];
 pub const ATHEROS_ADDR: SlacIfMac = [0x00, 0xb0, 0x52, 0x00, 0x00, 0x01];
 
+#[allow(non_camel_case_types)]
+#[derive(Clone, Copy, Debug)]
+#[repr(u16)]
+pub enum SlacRequest {
+    CM_SET_KEY_REQ = cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_REQ,
+    CM_SET_KEY_CNF = cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_CNF,
+    CM_START_ATTENT_IND = cglue::MMTYPE_CM_START_ATTEN_CHAR | cglue::MMTYPE_MODE_IND,
+    CM_SLAC_PARAM_REQ = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_REQ,
+    CM_SLAC_PARAM_CNF = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF,
+    CM_MNBC_SOUND_IND = cglue::MMTYPE_CM_MNBC_SOUND | cglue::MMTYPE_MODE_IND,
+    CM_ATTEN_CHAR_IND = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_IND,
+    CM_SLAC_MATCH_CNF = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_CNF,
+
+    CM_NONE = 0, // nothing pending
+}
+
+impl SlacRequest {
+    pub fn from_u16(value:u16) -> Self {
+        unsafe { std::mem::transmute(value) }
+    }
+}
+
 // To enforce C packing SlacRaw msg is defined within C header
 pub type SlacRawMsg = cglue::cm_slac_raw_msg;
 
@@ -133,6 +155,22 @@ impl SetKeyCnf {
     pub fn as_slac_payload(&self) -> Result<SlacPayload, AfbError> {
         Ok(SlacPayload::SetKeyCnf(&self))
     }
+
+    pub fn send(self, sock: &SockRaw, dstaddr: &SlacIfMac) -> Result<(), AfbError> {
+        let rqt = SlacRawMsg {
+            ethernet: cglue::ether_header::new(sock, dstaddr),
+            homeplug: cglue::homeplug_header::new(
+                cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_CNF,
+            ),
+            payload: cglue::cm_slac_payload { set_key_cnf: self },
+        };
+        let size = mem::size_of::<cglue::ether_header>()
+            + mem::size_of::<cglue::homeplug_header>()
+            + mem::size_of::<cglue::cm_set_key_req>();
+
+        rqt.send(sock, size)?;
+        Ok(())
+    }
 }
 impl fmt::Display for SetKeyCnf {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -141,7 +179,7 @@ impl fmt::Display for SetKeyCnf {
         let your_nonce = self.your_nonce;
         let prn = self.prn;
         let text = format!(
-            "SetKeyCnf:{{ result:{:02X?}, my_nonce:{:02x?}, your_nonce:{:02X?}, pid:{:02X?}, prn:{:02X?}, cco:{:02X?} }}",
+            "SetKeyCnf:{{ result:{:02X?}, my_nonce:{:#0x?}, your_nonce:{:#0x?}, pid:{:02X?}, prn:{:02X?}, cco:{:02X?} }}",
             self.result, my_nonce, your_nonce, self.pid, prn, self.cco_capability
         );
         fmt.pad(&text)
@@ -268,7 +306,9 @@ impl SlacParmCnf {
     pub fn send(self, sock: &SockRaw, pevaddr: &SlacIfMac) -> Result<(), AfbError> {
         let rqt = SlacRawMsg {
             ethernet: cglue::ether_header::new(sock, pevaddr),
-            homeplug: cglue::homeplug_header::new(cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF),
+            homeplug: cglue::homeplug_header::new(
+                cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF,
+            ),
             payload: cglue::cm_slac_payload {
                 slac_parm_cnf: self,
             },
@@ -518,9 +558,9 @@ impl fmt::Display for SlacMatchReq {
 // Message size is = 97 bytes
 pub type SlacMatchCnf = cglue::cm_slac_match_cnf;
 impl SlacMatchCnf {
-    pub fn send(self, sock: &SockRaw, pevmac: &SlacIfMac) -> Result<(), AfbError> {
+    pub fn send(self, sock: &SockRaw, pev_addr: &SlacIfMac) -> Result<(), AfbError> {
         let rqt = SlacRawMsg {
-            ethernet: cglue::ether_header::new(sock, pevmac),
+            ethernet: cglue::ether_header::new(sock, pev_addr),
             homeplug: cglue::homeplug_header::new(cglue::MMTYPE_CM_SET_KEY),
             payload: cglue::cm_slac_payload {
                 slac_match_cnf: self,
@@ -613,18 +653,32 @@ impl SlacRawMsg {
 
     // parse message header and return a Rust typed payload
     pub fn parse<'a>(&'a self) -> Result<SlacPayload, AfbError> {
+        let payload = match SlacRequest::from_u16(self.homeplug.get_mmtype()) {
+            SlacRequest::CM_SET_KEY_CNF => {
+                SlacPayload::SetKeyCnf(unsafe { &self.payload.set_key_cnf })
+            }
+            SlacRequest::CM_SET_KEY_REQ => {
+                SlacPayload::SetKeyReq(unsafe { &self.payload.set_key_req })
+            }
+            SlacRequest::CM_START_ATTENT_IND => {
+                SlacPayload::StartAttentCharInd(unsafe { &self.payload.start_atten_char_ind })
+            }
+            SlacRequest::CM_SLAC_PARAM_REQ => {
+                SlacPayload::SlacParmReq(unsafe { &self.payload.slac_parm_req })
+            }
+            SlacRequest::CM_SLAC_PARAM_CNF => {
+                SlacPayload::SlacParmCnf(unsafe { &self.payload.slac_parm_cnf })
+            }
+            SlacRequest::CM_MNBC_SOUND_IND => {
+                SlacPayload::MnbcSoundInd(unsafe { &self.payload.mnbc_sound_ind })
+            }
+            SlacRequest::CM_ATTEN_CHAR_IND => {
+                SlacPayload::AttenCharInd(unsafe { &self.payload.atten_char_ind })
+            }
+            SlacRequest::CM_SLAC_MATCH_CNF => {
+                SlacPayload::SlacMatchCnf(unsafe { &self.payload.slac_match_cnf })
+            }
 
-        // Request mimetype use the same numner but REQ and with 0x0 and CNF with 0x1
-        const CM_SET_KEY_REQ: u16 = cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_REQ;
-        const CM_START_ATTEN: u16 = cglue::MMTYPE_CM_START_ATTEN_CHAR | cglue::MMTYPE_MODE_REQ;
-        const CM_SLAC_PARAM_REQ: u16 = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_REQ;
-        const CM_MNBC_SOUND_IND: u16 = cglue::MMTYPE_CM_MNBC_SOUND | cglue::MMTYPE_MODE_IND;
-
-        let payload = match self.homeplug.get_mmtype() {
-            CM_SET_KEY_REQ => SlacPayload::SetKeyCnf(unsafe { &self.payload.set_key_cnf }),
-            CM_START_ATTEN => SlacPayload::StartAttentCharInd(unsafe { &self.payload.start_atten_char_ind }),
-            CM_SLAC_PARAM_REQ => SlacPayload::SlacParmReq(unsafe { &self.payload.slac_parm_req }),
-            CM_MNBC_SOUND_IND => SlacPayload::MnbcSoundInd(unsafe { &self.payload.mnbc_sound_ind }),
             _ => return afb_error!("slac-msg-parse", "unsupport message mmype:{:#04x}", self.homeplug.get_mmtype()),
         };
         Ok(payload)

@@ -11,12 +11,14 @@
             "request": "launch",
             "program": "afb-binder",
             "env": {
-                "LD_LIBRARY_PATH": "/usr/local/lib64"
+                "LD_LIBRARY_PATH": "/usr/local/lib64",
+                "IFACE": "vethA"
             },
             "args": [
                 "-v",
                 "--monitoring",
                 "--trap-faults=0",
+                "--no-httpd",
                 "--config=afb-binding/etc/binder-slac.json",
                 "--config=afb-test/etc/binding-test-slac.json",
             ],

@@ -9,7 +9,7 @@
             "path": "$CARGO_TARGET_DIR/debug/libafb_slac.so",
             "info": "RUST Slac ISO15118-3",
             "iec_api": "slac-test",
-            "iso_itf": "lo",
+            "iso_itf": "${IFACE}",
             "timeout": 20,
             "timetic": 3
         },

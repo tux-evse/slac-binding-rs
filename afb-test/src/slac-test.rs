@@ -79,8 +79,12 @@ impl AfbApiControls for TapUserData {
     }
 }
 
-AfbVerbRegister!(StateRequestVerb, state_request_cb);
-fn state_request_cb(rqt: &AfbRequest, _args: &AfbData) -> Result<(), AfbError> {
+struct DummyMockCtx {
+    label: &'static str,
+}
+AfbVerbRegister!(DummyMockVerb, dummy_request_cb, DummyMockCtx);
+fn dummy_request_cb(rqt: &AfbRequest, _args: &AfbData, ctx: &mut DummyMockCtx) -> Result<(), AfbError> {
+    afb_log_msg!(Notice, rqt, "Api mocking:{}", ctx.label);
     rqt.reply(AFB_NO_DATA, 0);
     Ok(())
 }
@@ -102,8 +106,13 @@ pub fn binding_test_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static A
     slac_registers()?;
 
     let subscribe_verb = AfbVerb::new("subscribe")
-        .set_info("Mock iec subscribe api")
-        .set_callback(Box::new(StateRequestVerb {}))
+        .set_info("Mock subscribe api")
+        .set_callback(Box::new(DummyMockVerb {label: "subscribe"}))
+        .finalize()?;
+
+    let slac_verb = AfbVerb::new("slac")
+        .set_info("Mock eic/slac api")
+        .set_callback(Box::new(DummyMockVerb {label: "eic/slac"}))
         .finalize()?;
 
     afb_log_msg!(Notice, rootv4, "slac test uid:{} target:{}", uid, target);
@@ -112,6 +121,7 @@ pub fn binding_test_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static A
         .require_api(target)
         .set_callback(Box::new(tap_config))
         .add_verb(subscribe_verb)
+        .add_verb(slac_verb)
         .seal(false)
         .finalize()?;
     Ok(api)

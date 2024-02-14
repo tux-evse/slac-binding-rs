@@ -24,29 +24,26 @@ enum SlacAction {
     None,
 }
 
-struct JobPostCtx {
+struct JobClearKeyCtx {
     slac: Rc<SlacSession>,
     action: Rc<Cell<SlacAction>>,
 }
-AfbJobRegister!(JobPostCtrl, jobpost_callback, JobPostCtx);
-fn jobpost_callback(
+AfbJobRegister!(JobClearKeyCtrl, job_clear_key_callback, JobClearKeyCtx);
+fn job_clear_key_callback(
     _job: &AfbSchedJob,
     _signal: i32,
-    ctx: &mut JobPostCtx,
+    ctx: &mut JobClearKeyCtx,
 ) -> Result<(), AfbError> {
     let request = ctx.action.get();
+    let mut state = ctx.slac.get_cell()?;
     match request {
         SlacAction::Clear => {
-            ctx.slac.evse_clear_key()?;
+            ctx.slac.evse_clear_key(&mut state)?;
+
         }
         SlacAction::Check => {
-            // plug is connected stry to initiate Slac negotiation
-            ctx.slac.send_set_key_req()?;
-            ctx.slac.set_status(
-                SlacRequest::CM_SLAC_PARAM,
-                SlacStatus::WAITING,
-                ctx.slac.config.timeout,
-            )?;
+            let mut state = ctx.slac.get_cell()?;
+            ctx.slac.send_set_key_req(&mut state)?;
         }
 
         _ => {}
@@ -92,8 +89,8 @@ AfbEvtFdRegister!(SessionAsyncCtrl, async_session_cb, AsyncFdCtx);
 fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Result<(), AfbError> {
     if revent == AfbEvtFdPoll::IN.bits() {
         use std::mem::MaybeUninit;
-        #[allow(invalid_value)]
-        let mut message: SlacRawMsg = unsafe { MaybeUninit::uninit().assume_init() };
+        let message = MaybeUninit::<SlacRawMsg>::uninit();
+        let mut message = unsafe { message.assume_init() };
         ctx.slac.get_sock().read(&mut message)?;
         let payload = ctx.slac.decode(&message)?;
         afb_log_msg!(
@@ -127,7 +124,7 @@ AfbTimerRegister!(TimerCtrl, timer_callback, TimerCtx);
 fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result<(), AfbError> {
     match ctx.slac.check() {
         Ok(next) => match next {
-            SlacRequest::CM_NONE => {/*ignore*/}
+            SlacRequest::CM_NONE => { /*ignore*/ }
             _ => {
                 afb_log_msg!(
                     Debug,
@@ -179,7 +176,8 @@ pub(crate) fn register(
 
     // create afb/slac slac session and exchange keys
     let slac = Rc::new(SlacSession::new(iface, &config.slac)?);
-    slac.evse_clear_key()?;
+    let mut state = slac.get_cell()?;
+    slac.evse_clear_key(&mut state)?;
 
     // register dev handler within listening event loop
     AfbEvtFd::new(iface)
@@ -208,7 +206,7 @@ pub(crate) fn register(
 
     let job_post = AfbSchedJob::new("iec6185-job")
         .set_exec_watchdog(2) // limit exec time to 200ms;
-        .set_callback(Box::new(JobPostCtx {
+        .set_callback(Box::new(JobClearKeyCtx {
             slac: slac.clone(),
             action: action.clone(),
         }))

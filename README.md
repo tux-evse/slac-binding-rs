@@ -54,7 +54,7 @@ To add CAP_NET_RAW to afb-binder use
 
 ```bash
 # afb-binder started from bash should have CAP_NET_RAW capability
-sudo setcap cap_net_raw+eip /usr/(local)/bin/afb-binder
+sudo setcap cap_net_raw+eip /usr/local/bin/afb-binder
 
 # when debugging from vscode/codium (use 'ps -ef | grep lldb-server' to find corresponding version)
 for FILE in $HOME/.vscode-oss/extensions/vadimcn.vscode-lldb*/lldb/bin/lldb-server; do sudo setcap cap_net_raw+eip $FILE; done
@@ -134,3 +134,13 @@ WARNING/ on host you need to be member of wireshark group or use su as in previo
 * [5] <https://docbox.etsi.org/Reference/homeplug_av11/homeplug_av11_specification_final_public.pdf>
 * [5] <https://docbox.etsi.org/Reference/homeplug_av21/homeplug_av21_specification_final_public.pdf>
 * [6]: Synacktiv V2G injector (<https://www.sstic.org/media/SSTIC2019/SSTIC-actes/v2g_injector_playing_with_electric_cars_and_chargi/SSTIC2019-Article-v2g_injector_playing_with_electric_cars_and_charging_stations_via_powerline-dudek.pdf>)
+
+
+Fulup Trialog Notes:
+
+* Qualcom tool EV send CM_SET_KEY.REQ
+* Trialog envoie en direct CM_SLAC_PARM.REQ
+
+1) Regarder la nogiciation Slac_PRM_REQUEST et la reponse
+2) Regarder les packet m
+sound

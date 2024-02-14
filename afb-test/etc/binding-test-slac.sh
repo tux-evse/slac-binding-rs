@@ -10,6 +10,11 @@ if ! test -f $CARGO_TARGET_DIR/debug/libafb_slac.so; then
     exit 1
 fi
 
+if test -z "$IFACE"; then
+    echo "ERROR: IFACE is not defined (export IFACE=vethA)"
+    exit 1
+fi
+
 # start binder with test config
 afb-binder -v \
    --config=afb-binding/etc/binder-slac.json \
