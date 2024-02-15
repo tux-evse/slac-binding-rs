@@ -56,10 +56,11 @@ pub enum SlacRequest {
     CM_START_ATTENT_IND = cglue::MMTYPE_CM_START_ATTEN_CHAR | cglue::MMTYPE_MODE_IND,
     CM_SLAC_PARAM_REQ = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_REQ,
     CM_SLAC_PARAM_CNF = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF,
-    CM_MNBC_SOUND_IND = cglue::MMTYPE_CM_MNBC_SOUND | cglue::MMTYPE_MODE_IND,
-    CM_ATTEN_CHAR_IND = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_IND,
     CM_SLAC_MATCH_CNF = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_CNF,
     CM_SLAC_MATCH_REQ = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_REQ,
+    CM_MNBC_SOUND_IND = cglue::MMTYPE_CM_MNBC_SOUND | cglue::MMTYPE_MODE_IND,
+    CM_ATTEN_CHAR_IND = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_IND,
+    CM_ATTEN_CHAR_PROFILE_IND= cglue::MMTYPE_CM_ATTEN_PROFILE | cglue::MMTYPE_MODE_IND,
 
     CM_NONE = 0, // nothing pending
 }
@@ -653,8 +654,8 @@ impl SlacRawMsg {
         &self.homeplug
     }
 
-    // parse message header and return a Rust typed payload
-    pub fn parse<'a>(&'a self) -> Result<SlacPayload, AfbError> {
+    // parse message mimetype and return a Rust typed payload
+    pub fn mime_parse<'a>(&'a self) -> Result<SlacPayload, AfbError> {
         let payload = match SlacRequest::from_u16(self.homeplug.get_mmtype()) {
             SlacRequest::CM_SET_KEY_CNF => {
                 SlacPayload::SetKeyCnf(unsafe { &self.payload.set_key_cnf })
@@ -676,6 +677,9 @@ impl SlacRawMsg {
             }
             SlacRequest::CM_ATTEN_CHAR_IND => {
                 SlacPayload::AttenCharInd(unsafe { &self.payload.atten_char_ind })
+            }
+            SlacRequest::CM_ATTEN_CHAR_PROFILE_IND => {
+                SlacPayload::AttenProfileInd(unsafe { &self.payload.atten_profile_ind })
             }
             SlacRequest::CM_SLAC_MATCH_CNF => {
                 SlacPayload::SlacMatchCnf(unsafe { &self.payload.slac_match_cnf })

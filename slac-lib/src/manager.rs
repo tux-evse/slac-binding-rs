@@ -253,7 +253,7 @@ impl SlacSession {
 
     pub fn decode<'a>(&self, msg: &'a SlacRawMsg) -> Result<SlacPayload<'a>, AfbError> {
         let mut state = self.get_cell()?;
-        let payload = match msg.parse()? {
+        let payload = match msg.mime_parse()? {
             //got CM_SET_KEY.CNF store source mac addr
             SlacPayload::SetKeyCnf(payload) => {
                 afb_log_msg!(Notice, None, "SlacPayload::SetKeyCnf");
@@ -285,7 +285,7 @@ impl SlacSession {
                 );
 
                 state.pev_addr = msg.ethernet.ether_shost; // let's update vehicle source ether addr
-                state.pending = SlacRequest::CM_START_ATTENT_IND;
+                state.pending = SlacRequest::CM_ATTEN_CHAR_IND;
                 state.timeout = self.config.timeout;
                 state.stamp = Instant::now();
                 state.status = SlacStatus::WAITING;
@@ -299,7 +299,7 @@ impl SlacSession {
             SlacPayload::StartAttentCharInd(payload) => {
                 // As is stated in ISO15118-3, the EV will send 3 consecutive as broadcast
                 afb_log_msg!(Notice, None, "SlacPayload::StartAttentCharInd");
-                if slice_equal(&payload.run_id, &state.runid)
+                if !slice_equal(&payload.run_id, &state.runid)
                     || payload.resp_type != cglue::CM_SLAC_PARM_CNF_RESP_TYPE
                     || payload.security_type != state.security_type
                     || payload.application_type != state.application_type
@@ -350,7 +350,7 @@ impl SlacSession {
                     return afb_error!("session-mnbc-sound", "No sound expected");
                 }
 
-                if slice_equal(&payload.run_id, &state.runid)
+                if !slice_equal(&payload.run_id, &state.runid)
                     || payload.security_type != state.security_type
                     || payload.application_type != state.application_type
                 {
@@ -359,7 +359,7 @@ impl SlacSession {
                 state.pevid = payload.pevid;
 
                 // state.num_sound is decremented when receiving CM_ATTEN_PROFILE.IND
-                if state.num_sounds == payload.remaining_sound_count - 1 {
+                if state.num_sounds-1 != payload.remaining_sound_count {
                     return afb_error!("session-mnbc-sound", "invalid counting sequence",);
                 }
 
@@ -395,7 +395,7 @@ impl SlacSession {
                     None,
                     "SlacPayload::AttenProfileInd (CM_ATTEN_PROFILE.IND)"
                 );
-                if slice_equal(&payload.pev_mac, &state.pev_addr) {
+                if !slice_equal(&payload.pev_mac, &state.pev_addr) {
                     return afb_error!("session-attend-profile", "invalid source PEV Mac addr",);
                 }
 
@@ -422,7 +422,7 @@ impl SlacSession {
             // CM_ATTEN_CHAR.RSP confirmation for sounding OK/FX
             SlacPayload::AttenCharRsp(payload) => {
                 afb_log_msg!(Notice, None, "SlacPayload::AttenCharRsp(CM_ATTEN_CHAR.RSP)");
-                if slice_equal(&payload.run_id, &state.runid)
+                if !slice_equal(&payload.run_id, &state.runid)
                     || payload.result != cglue::CM_ATTEN_CHAR_RSP_RESULT
                     || payload.security_type != state.security_type
                     || payload.application_type != state.application_type
@@ -440,7 +440,7 @@ impl SlacSession {
                     None,
                     "SlacPayload::SlacMatchReq (CM_SLAC_MATCH.REQ)"
                 );
-                if slice_equal(&payload.run_id, &state.runid)
+                if !slice_equal(&payload.run_id, &state.runid)
                     || payload.security_type != state.security_type
                     || payload.application_type != state.application_type
                 {

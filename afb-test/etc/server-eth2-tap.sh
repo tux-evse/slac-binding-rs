@@ -47,11 +47,11 @@ echo "-- create wireguard network interface"
   wg set wg0-tap private-key ./server-private.key
   ip a a 12.12.12.1/24 dev wg0-tap
 
-echo -- configure wireguard with pki keys
+echo "-- configure wireguard with pki keys"
   ip l set dev wg0-tap up
   wg set wg0-tap listen-port 51820 peer $(cat client-public.key) allowed-ips 0.0.0.0/0
 
-echo -- create layer2 tap device
+echo "-- create layer2 tap device"
   modprobe gre
   if test $? -ne 0; then
     echo "(hoops) kernel module 'gre' not found (need to be fixed)"
@@ -60,14 +60,14 @@ echo -- create layer2 tap device
   ip l a gre-tun type gretap local 12.12.12.1 remote 12.12.12.2
   ip l s gre-tun up
 
-echo -- configure bridge and add codico interface:$SLAC_IFACE
+echo "-- configure bridge and add codico interface:$SLAC_IFACE"
   ip l add name br0-tun type bridge
   ip l set dev br0-tun up
   ip l set gre-tun master br0-tun
   ip l set $SLAC_IFACE master br0-tun
   # ip a a 192.168.29.51/24 dev br0-tun
 
-echo -- dispkay bridge config
+echo "-- display 'br0-tun' bridge config"
   ip link show master br0-tun
 
 

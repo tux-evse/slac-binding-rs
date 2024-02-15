@@ -93,20 +93,24 @@ fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Res
         let mut message = unsafe { message.assume_init() };
         ctx.slac.get_sock().read(&mut message)?;
         let payload = ctx.slac.decode(&message)?;
-        afb_log_msg!(
-            Debug,
-            ctx.event,
-            "iface:{} payload:{}",
-            ctx.slac.get_iface(),
-            payload
-        );
+        // afb_log_msg!(
+        //     Debug,
+        //     ctx.event,
+        //     "iface:{} payload:{}",
+        //     ctx.slac.get_iface(),
+        //     payload
+        // );
 
         match payload {
             SlacPayload::SlacParmCnf(_payload) => {
                 ctx.event.push(SlacStatus::JOINING);
             }
-            SlacPayload::SlacMatchReq(_payload) => {}
-            SlacPayload::SlacMatchCnf(_payload) => {}
+            SlacPayload::SlacMatchReq(_payload) => {
+                ctx.event.push(SlacStatus::MATCHING);
+            }
+            SlacPayload::SlacMatchCnf(_payload) => {
+                ctx.event.push(SlacStatus::MATCHED);
+            }
             _ => {}
         }
     }
@@ -129,7 +133,7 @@ fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result
                 afb_log_msg!(
                     Debug,
                     timer,
-                    "slac iface:{} next:{}",
+                    "slac timer iface:{} next:{}",
                     ctx.slac.get_iface(),
                     format!("{:?}", next)
                 );

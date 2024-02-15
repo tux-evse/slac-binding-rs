@@ -12,7 +12,7 @@
             "program": "afb-binder",
             "env": {
                 "LD_LIBRARY_PATH": "/usr/local/lib64",
-                "IFACE": "wg0-tap"
+                "IFACE": "veth-dbg"
             },
             "args": [
                 "-v",
