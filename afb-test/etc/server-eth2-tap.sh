@@ -10,6 +10,7 @@
 
 export WG_PORT=51820
 export SLAC_IFACE=eth2
+export FWALL_ZONE=work
 
 echo "Wireguard config to tap codico/eth2 device from target to development desktop"
 echo ---
@@ -36,7 +37,8 @@ if test ! -f server-public.key; then
     echo "#scp root@target-name:$HOME/wg-tap-pki/client*.key $HOME/wg-tap-pki/server-public.key ."
 
     echo "-- firewall opening wg-port:$WG_PORT"
-    firewall-cmd --add-port=$WG_PORT/udp --permanent && firewall-cmd --reload
+    firewall-cmd --add-port=$WG_PORT/udp --zone=$FWALL_ZONE --permanent && firewall-cmd --reload
+
 else
     echo "reusing wg-pki from $HOME/wg-tap-pki"
 fi

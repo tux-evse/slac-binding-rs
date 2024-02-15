@@ -40,9 +40,6 @@ echo "-- clean previous config"
 if test ! -f server-public.key; then
     echo "-- importing public/private keys into $HOME/wg-tap-pki"
     scp root@$WG_SERVER_IP:wg-tap-pki/client*.key root@$WG_SERVER_IP:wg-tap-pki/server-public.key .
-
-    echo "-- firewall opening:wg-port:$WG_PORT"
-    firewall-cmd --add-port=$WG_PORT/udp --permanent && firewall-cmd --reload
 else
     echo "reusing wg-pki from $HOME/wg-tap-pki"
 fi
@@ -80,6 +77,7 @@ echo "-- display 'br0-tun' bridge config"
   ip link show master br0-tun
 
 echo "-- Start debug session with:"
+echo "# ping 12.12.12.1; # check wireguard VPN connectivity"
 echo "# wireshark -i veth-dbg; # remote monitoring of Codico layer2 traffic"
 echo "# IFACE=veth-dbg afb-test/etc/binding-test-slac.sh; # start SLAC test"
 

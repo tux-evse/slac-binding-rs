@@ -56,11 +56,13 @@ pub enum SlacRequest {
     CM_START_ATTENT_IND = cglue::MMTYPE_CM_START_ATTEN_CHAR | cglue::MMTYPE_MODE_IND,
     CM_SLAC_PARAM_REQ = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_REQ,
     CM_SLAC_PARAM_CNF = cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF,
-    CM_SLAC_MATCH_CNF = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_CNF,
-    CM_SLAC_MATCH_REQ = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_REQ,
-    CM_MNBC_SOUND_IND = cglue::MMTYPE_CM_MNBC_SOUND | cglue::MMTYPE_MODE_IND,
+    CM_SLAC_MATCH_REQ = cglue::MMTYPE_CM_SLAC_MATCH | cglue::MMTYPE_MODE_REQ,
     CM_ATTEN_CHAR_IND = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_IND,
-    CM_ATTEN_CHAR_PROFILE_IND= cglue::MMTYPE_CM_ATTEN_PROFILE | cglue::MMTYPE_MODE_IND,
+    CM_ATTEN_CHAR_RSP = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_RSP,
+    CM_MNBC_SOUND_IND = cglue::MMTYPE_CM_MNBC_SOUND | cglue::MMTYPE_MODE_IND,
+    CM_ATTEN_CHAR_PROFILE_IND = cglue::MMTYPE_CM_ATTEN_PROFILE | cglue::MMTYPE_MODE_IND,
+    CM_SLAC_MATCH_IND= cglue::MMTYPE_CM_SLAC_MATCH | cglue::MMTYPE_MODE_IND,
+    CM_SLAC_MATCH_CNF= cglue::MMTYPE_CM_SLAC_MATCH | cglue::MMTYPE_MODE_CNF,
 
     CM_NONE = 0, // nothing pending
 }
@@ -107,7 +109,7 @@ impl SetKeyReq {
     pub fn send(self, sock: &SockRaw, dstaddr: &SlacIfMac) -> Result<(), AfbError> {
         let rqt = SlacRawMsg {
             ethernet: cglue::ether_header::new(sock, dstaddr),
-            homeplug: cglue::homeplug_header::new(cglue::MMTYPE_CM_SET_KEY),
+            homeplug: cglue::homeplug_header::new(SlacRequest::CM_SET_KEY_REQ as u16),
             payload: cglue::cm_slac_payload { set_key_req: self },
         };
         let size = mem::size_of::<cglue::ether_header>()
@@ -162,9 +164,7 @@ impl SetKeyCnf {
     pub fn send(self, sock: &SockRaw, dstaddr: &SlacIfMac) -> Result<(), AfbError> {
         let rqt = SlacRawMsg {
             ethernet: cglue::ether_header::new(sock, dstaddr),
-            homeplug: cglue::homeplug_header::new(
-                cglue::MMTYPE_CM_SET_KEY | cglue::MMTYPE_MODE_CNF,
-            ),
+            homeplug: cglue::homeplug_header::new(SlacRequest::CM_SET_KEY_CNF as u16),
             payload: cglue::cm_slac_payload { set_key_cnf: self },
         };
         let size = mem::size_of::<cglue::ether_header>()
@@ -309,9 +309,7 @@ impl SlacParmCnf {
     pub fn send(self, sock: &SockRaw, pevaddr: &SlacIfMac) -> Result<(), AfbError> {
         let rqt = SlacRawMsg {
             ethernet: cglue::ether_header::new(sock, pevaddr),
-            homeplug: cglue::homeplug_header::new(
-                cglue::MMTYPE_CM_SLAC_PARAM | cglue::MMTYPE_MODE_CNF,
-            ),
+            homeplug: cglue::homeplug_header::new(SlacRequest::CM_SLAC_PARAM_CNF as u16),
             payload: cglue::cm_slac_payload {
                 slac_parm_cnf: self,
             },
@@ -433,7 +431,7 @@ impl AttenCharInd {
     pub fn send(self, sock: &SockRaw, pevaddr: &SlacIfMac) -> Result<(), AfbError> {
         let rqt = SlacRawMsg {
             ethernet: cglue::ether_header::new(sock, pevaddr),
-            homeplug: cglue::homeplug_header::new(cglue::MMTYPE_CM_SET_KEY),
+            homeplug: cglue::homeplug_header::new(SlacRequest::CM_ATTEN_CHAR_IND as u16),
             payload: cglue::cm_slac_payload {
                 atten_char_ind: self,
             },
@@ -564,7 +562,7 @@ impl SlacMatchCnf {
     pub fn send(self, sock: &SockRaw, pev_addr: &SlacIfMac) -> Result<(), AfbError> {
         let rqt = SlacRawMsg {
             ethernet: cglue::ether_header::new(sock, pev_addr),
-            homeplug: cglue::homeplug_header::new(cglue::MMTYPE_CM_SET_KEY),
+            homeplug: cglue::homeplug_header::new(SlacRequest::CM_SLAC_MATCH_CNF as u16),
             payload: cglue::cm_slac_payload {
                 slac_match_cnf: self,
             },
@@ -675,14 +673,14 @@ impl SlacRawMsg {
             SlacRequest::CM_MNBC_SOUND_IND => {
                 SlacPayload::MnbcSoundInd(unsafe { &self.payload.mnbc_sound_ind })
             }
-            SlacRequest::CM_ATTEN_CHAR_IND => {
-                SlacPayload::AttenCharInd(unsafe { &self.payload.atten_char_ind })
+            SlacRequest::CM_ATTEN_CHAR_RSP => {
+                SlacPayload::AttenCharRsp(unsafe { &self.payload.atten_char_rsp })
             }
             SlacRequest::CM_ATTEN_CHAR_PROFILE_IND => {
                 SlacPayload::AttenProfileInd(unsafe { &self.payload.atten_profile_ind })
             }
-            SlacRequest::CM_SLAC_MATCH_CNF => {
-                SlacPayload::SlacMatchCnf(unsafe { &self.payload.slac_match_cnf })
+            SlacRequest::CM_SLAC_MATCH_REQ => {
+                SlacPayload::SlacMatchReq(unsafe { &self.payload.slac_match_req })
             }
 
             _ => {
@@ -714,7 +712,7 @@ impl SlacRawMsg {
 // Refer to Section 7.10.7.3 for generation of nonces.
 // The only secure way to remove a STA from an AVLN is to change the NMK
 pub fn send_set_key_req(session: &SlacSession, state: &mut SessionState) -> Result<(), AfbError> {
-    afb_log_msg!(Notice, None, "SlacSession:send_set_key_req");
+    afb_log_msg!(Notice, None, "SlacSession::send_set_key_req");
     let nid = session.mk_nid_from_nmk();
     let nonce: u32 = GetTime::mk_nonce();
 
@@ -818,7 +816,7 @@ pub fn send_atten_char_ind(
             aag: agg_group,
         },
     };
-    state.pending = SlacRequest::CM_SLAC_MATCH_CNF;
+    state.pending = SlacRequest::CM_SLAC_MATCH_REQ;
     state.timeout = SLAC_RESP_TIMEOUT;
     state.status = SlacStatus::MATCHED;
 
@@ -827,7 +825,10 @@ pub fn send_atten_char_ind(
 }
 
 // CM_SLAC_MATCH.CNF config to join EVSE logical network
-pub fn send_slac_match_cnf(session: &SlacSession, state: &mut SessionState) -> Result<(), AfbError> {
+pub fn send_slac_match_cnf(
+    session: &SlacSession,
+    state: &mut SessionState,
+) -> Result<(), AfbError> {
     afb_log_msg!(Notice, None, "SlacSession:send_slac_match_cnf");
 
     let payload = SlacMatchCnf {

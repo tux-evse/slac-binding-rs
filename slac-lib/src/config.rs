@@ -119,7 +119,7 @@ pub const SLAC_E_F_TIMEOUT:u32 = 4000; // [T_step_EF = min 4 s]
 
 // Timers.SLAC_ATTEN_TIMEOUT is the only value in the Timers class that its use
 // is supposed to be done as an integer (type int)
-pub const SLAC_ATTEN_TIMEOUT:u32 = 6 * 1000; // [TT_EVSE_match_MNBC = 600 ms]
+pub const SLAC_ATTEN_TIMEOUT:u32 = 6 * 100; // [TT_EVSE_match_MNBC = 600 ms]
 
 // number of sounds
 pub const SLAC_MSOUNDS:u8 = 10;

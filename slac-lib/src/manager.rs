@@ -196,7 +196,7 @@ impl SlacSession {
 
     // check for pending timeout request
     // Fulup TBD: what should be do when session fail to match ???
-    pub fn check(&self) -> Result<SlacRequest, AfbError> {
+    pub fn check_pending(&self) -> Result<SlacRequest, AfbError> {
         let mut state = self.get_cell()?;
 
         let action = if let SlacStatus::WAITING = state.status {
@@ -214,7 +214,7 @@ impl SlacSession {
                         }
                         state.pending
                     }
-                    SlacRequest::CM_SLAC_MATCH_CNF => {
+                    SlacRequest::CM_SLAC_MATCH_REQ => {
                         state.status = SlacStatus::UNMATCHED;
                         return afb_error!("session-check-timeout", "slac_match",);
                     }
@@ -233,11 +233,7 @@ impl SlacSession {
                 send_set_key_req(self, &mut state)?; // retry SET_KEY_REQ
                 SlacRequest::CM_SET_KEY_CNF
             }
-            SlacRequest::CM_MNBC_SOUND_IND => {
-                send_atten_char_ind(self, &mut state)?;
-                SlacRequest::CM_MNBC_SOUND_IND
-            }
-            _ => action, // nothing to be done
+             _ => action, // nothing to be done
         };
 
         Ok(action)
@@ -286,52 +282,12 @@ impl SlacSession {
 
                 state.pev_addr = msg.ethernet.ether_shost; // let's update vehicle source ether addr
                 state.pending = SlacRequest::CM_ATTEN_CHAR_IND;
-                state.timeout = self.config.timeout;
+                state.timeout = SLAC_RESP_TIMEOUT;
                 state.stamp = Instant::now();
                 state.status = SlacStatus::WAITING;
                 send_slac_param_cnf(self, &mut state)?;
 
                 payload.as_slac_payload()?
-            }
-
-            // CM_START_ATTEN_CHAR.IND (Broadcast Message) Announce sounding process start
-            // The full process should finish after 600ms, timer is set at 800ms
-            SlacPayload::StartAttentCharInd(payload) => {
-                // As is stated in ISO15118-3, the EV will send 3 consecutive as broadcast
-                afb_log_msg!(Notice, None, "SlacPayload::StartAttentCharInd");
-                if !slice_equal(&payload.run_id, &state.runid)
-                    || payload.resp_type != cglue::CM_SLAC_PARM_CNF_RESP_TYPE
-                    || payload.security_type != state.security_type
-                    || payload.application_type != state.application_type
-                {
-                    return afb_error!("session-start-attend-char-ind", "invalid payload content",);
-                }
-                state.pev_addr = payload.forwarding_sta;
-                state.num_sounds = payload.num_sounds;
-
-                // the value sent by the EV for the timeout has a factor of 1/100
-                // Thus, if the value is e.g. 6, the original value is 600 ms (6 * 100)
-                // ATTENTION
-                // There are cases where there are overhead on the incoming sound
-                // frames, causing a timeout.
-                // However, according to the following requirements:
-                // [V2G3-A09-30] - The EV shall start the timeout timer
-                // TT_EV_atten_results (max 1200 ms) when sending the first
-                // CM_START_ATTEN_CHAR.IND.
-                // [V2G3-A09-31] - While the timer TT_EV_atten_results (max 1200 ms) is
-                // running, the EV shall process incoming CM_ATTEN_CHAR.IND messages.
-                // Which means, we can use a larger timeout (like 800 ms) so that
-                // we receive all or mostly all of the sounds.
-                // In order to still respect the standard, we just override the time
-                // set by the EV in CM_START_ATTEN_CHAR if ATTEN_RESULTS_TIMEOUT is not None
-                // ??? payload.timeout as u32 * 100
-
-                state.pending = SlacRequest::CM_MNBC_SOUND_IND;
-                state.timeout = cglue::CM_SLAC_PARM_CNF_TIMEOUT as u32;
-                state.stamp = Instant::now();
-                state.status = SlacStatus::WAITING;
-
-                payload.as_slac_payload()? // set session to wait for sound messages
             }
 
             // CM_MNBC_SOUND.IND (until sound_count or sound_timeout)
@@ -356,13 +312,18 @@ impl SlacSession {
                 {
                     return afb_error!("session-mnbc-sound", "invalid payload content",);
                 }
-                state.pevid = payload.pevid;
 
                 // state.num_sound is decremented when receiving CM_ATTEN_PROFILE.IND
                 if state.num_sounds-1 != payload.remaining_sound_count {
                     return afb_error!("session-mnbc-sound", "invalid counting sequence",);
                 }
 
+                state.pevid = payload.pevid;
+                state.stamp = Instant::now();
+                state.pending = SlacRequest::CM_ATTEN_CHAR_IND;
+                state.timeout = SLAC_ATTEN_RESULTS_TIMEOUT;
+
+                state.status = SlacStatus::WAITING;
                 payload.as_slac_payload()?
             }
 
@@ -412,12 +373,53 @@ impl SlacSession {
                         state.avg_attn[idx] = state.avg_attn[idx] / state.agv_count;
                     }
                     state.pending = SlacRequest::CM_SLAC_MATCH_REQ;
-                    state.timeout = 1;
+                    state.timeout = SLAC_MATCH_TIMEOUT*10; // Fulup TBD
                     state.stamp = Instant::now();
                     send_atten_char_ind(self, &mut state)?;
                 }
                 payload.as_slac_payload()?
             }
+
+            // CM_START_ATTEN_CHAR.IND (Broadcast Message) Announce sounding process start
+            // The full process should finish after 600ms, timer is set at 800ms
+            SlacPayload::StartAttentCharInd(payload) => {
+                // As is stated in ISO15118-3, the EV will send 3 consecutive as broadcast
+                afb_log_msg!(Notice, None, "SlacPayload::StartAttentCharInd");
+                if !slice_equal(&payload.run_id, &state.runid)
+                    || payload.resp_type != cglue::CM_SLAC_PARM_CNF_RESP_TYPE
+                    || payload.security_type != state.security_type
+                    || payload.application_type != state.application_type
+                {
+                    return afb_error!("session-start-attend-char-ind", "invalid payload content",);
+                }
+                state.pev_addr = payload.forwarding_sta;
+                state.num_sounds = payload.num_sounds;
+
+                // the value sent by the EV for the timeout has a factor of 1/100
+                // Thus, if the value is e.g. 6, the original value is 600 ms (6 * 100)
+                // ATTENTION
+                // There are cases where there are overhead on the incoming sound
+                // frames, causing a timeout.
+                // However, according to the following requirements:
+                // [V2G3-A09-30] - The EV shall start the timeout timer
+                // TT_EV_atten_results (max 1200 ms) when sending the first
+                // CM_START_ATTEN_CHAR.IND.
+                // [V2G3-A09-31] - While the timer TT_EV_atten_results (max 1200 ms) is
+                // running, the EV shall process incoming CM_ATTEN_CHAR.IND messages.
+                // Which means, we can use a larger timeout (like 800 ms) so that
+                // we receive all or mostly all of the sounds.
+                // In order to still respect the standard, we just override the time
+                // set by the EV in CM_START_ATTEN_CHAR if ATTEN_RESULTS_TIMEOUT is not None
+                // ??? payload.timeout as u32 * 100
+
+                state.pending = SlacRequest::CM_MNBC_SOUND_IND;
+                state.timeout = cglue::CM_SLAC_PARM_CNF_TIMEOUT as u32;
+                state.stamp = Instant::now();
+                state.status = SlacStatus::WAITING;
+
+                payload.as_slac_payload()? // set session to wait for sound messages
+            }
+
 
             // CM_ATTEN_CHAR.RSP confirmation for sounding OK/FX
             SlacPayload::AttenCharRsp(payload) => {

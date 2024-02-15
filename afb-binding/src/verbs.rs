@@ -126,7 +126,7 @@ struct TimerCtx {
 // timer sessions maintain pending sessions when needed
 AfbTimerRegister!(TimerCtrl, timer_callback, TimerCtx);
 fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result<(), AfbError> {
-    match ctx.slac.check() {
+    match ctx.slac.check_pending() {
         Ok(next) => match next {
             SlacRequest::CM_NONE => { /*ignore*/ }
             _ => {
