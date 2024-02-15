@@ -43,7 +43,7 @@ fn job_clear_key_callback(
         }
         SlacAction::Check => {
             let mut state = ctx.slac.get_cell()?;
-            ctx.slac.send_set_key_req(&mut state)?;
+            send_set_key_req(&ctx.slac,&mut state)?;
         }
 
         _ => {}

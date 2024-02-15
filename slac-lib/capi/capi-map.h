@@ -117,7 +117,7 @@ const uint16_t CM_SLAC_MATCH_CNF_MVF_LENGTH = 0x56;
 
 const uint8_t CM_SLAC_PARM_CNF_RESP_TYPE = 0x01; // = other GP station
 const uint8_t CM_SLAC_PARM_CNF_NUM_SOUNDS = 10;  // typical value
-const uint8_t CM_SLAC_PARM_CNF_TIMEOUT = 0x06;   // 600ms
+const uint8_t CM_SLAC_PARM_CNF_TIMEOUT = 0x08;   // 800ms
 
 const uint8_t CM_SET_KEY_REQ_KEY_TYPE_NMK = 0x01; // NMK (AES-128), Network Management Key
 const uint8_t CM_SET_KEY_REQ_PID_HLE = 0x04;

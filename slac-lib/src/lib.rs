@@ -37,12 +37,12 @@ mod conf;
 #[path = "messages.rs"]
 mod msg;
 
-#[path = "session.rs"]
-mod session;
+#[path = "manager.rs"]
+mod manager;
 
 pub mod prelude {
     pub(crate) use crate::capi::*;
     pub use crate::conf::*;
     pub use crate::msg::*;
-    pub use crate::session::*;
+    pub use crate::manager::*;
 }

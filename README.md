@@ -95,9 +95,8 @@ Any layer2 broadcast packet send on vethA is propagated to vethB
 
 ```bash
 // create a virtual bridge for vethA & vethB
-sudo ip link add br0 type bridge
-sudo ip link set br0 up
-
+sudo ip link add br0 type bridge; \
+sudo ip link set br0 up; \
 for DEV in vethA:peerA vethB:peerB ; do \
   SRC=`echo $DEV | cut -f 1 -d :`
   DST=`echo $DEV | cut -f 2 -d :`
@@ -122,6 +121,43 @@ Target remote wireshark debug
 
 ```bash
 ssh root@phytec-power.tuxevse.vpn "tcpdump -s0 -U -n -w - -i eth2" | wireshark -i -
+```
+
+## Trace with open-pcl-utils
+
+Check wireshark trace within afb_test/trace-logs
+
+```
+[root@phytec-power ~]# evse -i eth2 -K
+evse: UnoccupiedState: Listening ...
+evse: evse_cm_slac_param: <-- CM_SLAC_PARAM.REQ ?
+evse: evse_cm_slac_param: <-- CM_SLAC_PARAM.REQ
+evse: evse_cm_slac_param: --> CM_SLAC_PARAM.CNF
+evse: UnmatchedState: Sounding ...
+evse: evse_cm_start_atten_char: <-- CM_START_ATTEN_CHAR.IND
+evse: evse_cm_start_atten_char: evse_cm_start_atten_char: RESP_TYPE
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (0)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (0)
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (1)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (1)
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (2)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (2)
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (3)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (3)
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (4)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (4)
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (5)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (5)
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (6)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (6)
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (7)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (7)
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (8)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (8)
+evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (9)
+evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (9)
+evse: evse_cm_atten_char: --> CM_ATTEN_CHAR.IND
+evse: evse_cm_atten_char: <-- CM_ATTEN_CHAR.RSP
 ```
 
 WARNING/ on host you need to be member of wireshark group or use su as in previous native case

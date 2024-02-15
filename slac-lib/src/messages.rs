@@ -28,6 +28,7 @@ use crate::prelude::*;
 use afbv4::prelude::*;
 use std::fmt;
 use std::mem;
+use typesv4::prelude::*;
 
 // export public types to rust world
 pub const SLAC_NID_LEN: usize = cglue::NID_LEN as usize;
@@ -44,7 +45,7 @@ pub type SlacRunId = [u8; SLAC_RUNID_LEN];
 pub type SlacGroups = [u8; SLAC_AGGGROUP_LEN];
 pub type SlacStaId = [u8; SLAC_STATID_LEN];
 pub const BROADCAST_ADDR: SlacIfMac = [0xFF; ETHER_ADDR_LEN];
-pub const ATHEROS_ADDR: SlacIfMac = [0x00, 0xb0, 0x52, 0x00, 0x00, 0x01];
+pub const ATHEROS_MAC_ADDR: SlacIfMac = [0x00, 0xb0, 0x52, 0x00, 0x00, 0x01];
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]
@@ -58,12 +59,13 @@ pub enum SlacRequest {
     CM_MNBC_SOUND_IND = cglue::MMTYPE_CM_MNBC_SOUND | cglue::MMTYPE_MODE_IND,
     CM_ATTEN_CHAR_IND = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_IND,
     CM_SLAC_MATCH_CNF = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_CNF,
+    CM_SLAC_MATCH_REQ = cglue::MMTYPE_CM_ATTEN_CHAR | cglue::MMTYPE_MODE_REQ,
 
     CM_NONE = 0, // nothing pending
 }
 
 impl SlacRequest {
-    pub fn from_u16(value:u16) -> Self {
+    pub fn from_u16(value: u16) -> Self {
         unsafe { std::mem::transmute(value) }
     }
 }
@@ -679,8 +681,170 @@ impl SlacRawMsg {
                 SlacPayload::SlacMatchCnf(unsafe { &self.payload.slac_match_cnf })
             }
 
-            _ => return afb_error!("slac-msg-parse", "unsupport message mmype:{:#04x}", self.homeplug.get_mmtype()),
+            _ => {
+                return afb_error!(
+                    "slac-msg-parse",
+                    "unsupport message mmype:{:#04x}",
+                    self.homeplug.get_mmtype()
+                )
+            }
         };
         Ok(payload)
     }
+}
+
+// EVSE/PEV -> HPGP Node
+// PEV-HLE sets the NMK and NID on PEV-PLC using CM_SET_KEY.REQ;
+// the NMK and NID must match those provided by EVSE-HLE using
+// CM_SLAC_MATCH.CNF;
+// The configuration of the low-layer communication module with the
+// parameters of the logical network may be done with the MMEs
+// CM_SET_KEY.REQ and CM_SET_KEY.CNF.
+// Table A.8 from ISO15118-3 defines all the parameters needed and their
+// value for this call
+// My Nonce for that STA may remain constant for a run of a protocol),
+// but a new nonce should be generated for each new protocol run.
+// This reflects the purpose of nonces to provide a STA with a quantity i
+// t believes to be freshly generated (to defeat replay attacks) and to
+// use for association of messages within the protocol run.
+// Refer to Section 7.10.7.3 for generation of nonces.
+// The only secure way to remove a STA from an AVLN is to change the NMK
+pub fn send_set_key_req(session: &SlacSession, state: &mut SessionState) -> Result<(), AfbError> {
+    afb_log_msg!(Notice, None, "SlacSession:send_set_key_req");
+    let nid = session.mk_nid_from_nmk();
+    let nonce: u32 = GetTime::mk_nonce();
+
+    let payload = cglue::cm_set_key_req {
+        key_type: cglue::CM_SET_KEY_REQ_KEY_TYPE_NMK,
+        my_nonce: nonce,
+        your_nonce: 0,
+        pid: cglue::CM_SET_KEY_REQ_PID_HLE,
+        prn: htole16(cglue::CM_SET_KEY_REQ_PRN_UNUSED), // enforce big indian (zero does not need conversion)
+        pmn: cglue::CM_SET_KEY_REQ_PMN_UNUSED,
+        cco_capability: cglue::CM_SET_KEY_REQ_CCO_CAP_NONE,
+        nid: nid,
+        new_eks: cglue::CM_SET_KEY_REQ_PEKS_NMK_KNOWN_TO_STA,
+        new_key: session.config.nmk,
+    };
+
+    payload.send(&session.socket, &ATHEROS_MAC_ADDR)?;
+    state.nonce = nonce;
+    state.nid = nid;
+    state.pending = SlacRequest::CM_SLAC_PARAM_REQ;
+    state.timeout = session.config.timeout;
+    state.status = SlacStatus::IDLE;
+
+    Ok(())
+}
+
+pub fn send_set_key_cnf(
+    session: &SlacSession,
+    state: &mut SessionState,
+    remote_nonce: u32,
+) -> Result<(), AfbError> {
+    afb_log_msg!(Notice, None, "SlacSession:send_set_key_cnf");
+    let nonce: u32 = GetTime::mk_nonce();
+
+    let payload = cglue::cm_set_key_cnf {
+        my_nonce: nonce,
+        your_nonce: remote_nonce,
+        pid: cglue::CM_SET_KEY_REQ_PID_HLE,
+        prn: htole16(cglue::CM_SET_KEY_REQ_PRN_UNUSED), // enforce big indian (zero does not need conversion)
+        pmn: cglue::CM_SET_KEY_REQ_PMN_UNUSED,
+        cco_capability: cglue::CM_SET_KEY_REQ_CCO_CAP_NONE,
+        result: 0,
+        padding: [0; 3],
+    };
+
+    state.pending = SlacRequest::CM_NONE;
+    state.timeout = session.config.timeout;
+    state.status = SlacStatus::IDLE;
+
+    payload.send(&session.socket, &state.pev_addr)?;
+    Ok(())
+}
+
+// CM_SLAC_PARAM.CNF
+pub fn send_slac_param_cnf(
+    session: &SlacSession,
+    state: &mut SessionState,
+) -> Result<(), AfbError> {
+    afb_log_msg!(Notice, None, "SlacSession:send_slac_param_cnf");
+
+    let payload = SlacParmCnf {
+        application_type: state.application_type,
+        security_type: state.security_type,
+        run_id: state.runid.clone(),
+        m_sound_target: state.pev_addr.clone(),
+        num_sounds: SLAC_MSOUNDS,
+        timeout: SLAC_INIT_TIMEOUT,
+        resp_type: cglue::CM_SLAC_PARM_CNF_RESP_TYPE,
+        forwarding_sta: state.pev_addr.clone(),
+    };
+
+    state.pending = SlacRequest::CM_START_ATTENT_IND;
+    state.timeout = SLAC_RESP_TIMEOUT;
+    state.status = SlacStatus::WAITING;
+
+    payload.send(&session.socket, &state.pev_addr)?;
+    Ok(())
+}
+
+pub fn send_atten_char_ind(
+    session: &SlacSession,
+    state: &mut SessionState,
+) -> Result<(), AfbError> {
+    afb_log_msg!(Notice, None, "SlacSession:send_atten_char_ind");
+
+    let mut agg_group: SlacGroups = [0 as u8; SLAC_AGGGROUP_LEN];
+    for idx in 0..state.avg_groups as usize {
+        agg_group[idx] = state.avg_attn[idx] as u8;
+    }
+
+    let payload = AttenCharInd {
+        application_type: state.application_type,
+        security_type: state.security_type,
+        run_id: state.runid.clone(),
+        source_address: session.socket.get_ifmac(),
+        source_id: state.pevid.clone(),
+        num_sounds: state.agv_count as u8,
+        resp_id: session.config.evseid.clone(),
+        attenuation_profile: cglue::cm_atten_char_ind__bindgen_ty_1 {
+            num_groups: state.avg_groups,
+            aag: agg_group,
+        },
+    };
+    state.pending = SlacRequest::CM_SLAC_MATCH_CNF;
+    state.timeout = SLAC_RESP_TIMEOUT;
+    state.status = SlacStatus::MATCHED;
+
+    payload.send(&session.socket, &state.pev_addr)?;
+    Ok(())
+}
+
+// CM_SLAC_MATCH.CNF config to join EVSE logical network
+pub fn send_slac_match_cnf(session: &SlacSession, state: &mut SessionState) -> Result<(), AfbError> {
+    afb_log_msg!(Notice, None, "SlacSession:send_slac_match_cnf");
+
+    let payload = SlacMatchCnf {
+        application_type: state.application_type,
+        security_type: state.security_type,
+        run_id: state.runid.clone(),
+        mvf_length: htole16(cglue::CM_SLAC_MATCH_CNF_MVF_LENGTH), // MVF should be little endian
+        pev_id: state.pevid.clone(),
+        pev_mac: state.pev_addr.clone(),
+        evse_id: session.config.evseid.clone(),
+        evse_mac: session.socket.get_ifmac(),
+        _rerserved: [0; 8],
+        nid: state.nid.clone(),
+        _reserved2: 0,
+        nmk: session.config.nmk.clone(),
+    };
+
+    state.pending = SlacRequest::CM_NONE;
+    state.timeout = SLAC_RESP_TIMEOUT;
+    state.status = SlacStatus::MATCHED;
+
+    payload.send(&session.socket, &state.pev_addr)?;
+    Ok(())
 }

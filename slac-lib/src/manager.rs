@@ -29,7 +29,6 @@ use crate::prelude::*;
 use afbv4::prelude::*;
 use typesv4::prelude::*;
 
-
 #[derive(Clone)]
 pub struct SessionConfig {
     pub iface: &'static str,
@@ -84,7 +83,7 @@ impl SlacSession {
             security_type: 0,
             avg_groups: 0,
             agv_count: 0,
-            pev_addr: ATHEROS_ADDR,
+            pev_addr: ATHEROS_MAC_ADDR,
         });
 
         let session = SlacSession {
@@ -147,9 +146,9 @@ impl SlacSession {
         rqt: SlacRequest,
         status: SlacStatus,
         timeout: u32,
-    ) ->  Result<(), AfbError>{
+    ) -> Result<(), AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:set_waiting");
-        let mut state= self.get_cell()?;
+        let mut state = self.get_cell()?;
         state.pending = rqt;
         state.timeout = timeout;
         state.stamp = Instant::now();
@@ -165,9 +164,9 @@ impl SlacSession {
         secu_type: u8,
     ) {
         afb_log_msg!(Notice, None, "SlacSession:set_param_req");
-                state.runid = runid.clone();
-                state.application_type = app_type;
-                state.security_type = secu_type;
+        state.runid = runid.clone();
+        state.application_type = app_type;
+        state.security_type = secu_type;
     }
 
     pub fn get_pending(&self) -> Result<SlacRequest, AfbError> {
@@ -199,6 +198,7 @@ impl SlacSession {
     // Fulup TBD: what should be do when session fail to match ???
     pub fn check(&self) -> Result<SlacRequest, AfbError> {
         let mut state = self.get_cell()?;
+
         let action = if let SlacStatus::WAITING = state.status {
             let now = Instant::now();
             let elapse = now.duration_since(state.stamp).as_millis();
@@ -230,167 +230,17 @@ impl SlacSession {
         // chaining of command should be done after session.state as been freed
         let action = match action {
             SlacRequest::CM_SLAC_PARAM_REQ => {
-                self.send_set_key_req(&mut state)?; // retry SET_KEY_REQ
+                send_set_key_req(self, &mut state)?; // retry SET_KEY_REQ
                 SlacRequest::CM_SET_KEY_CNF
             }
             SlacRequest::CM_MNBC_SOUND_IND => {
-                self.send_atten_char(&mut state)?;
+                send_atten_char_ind(self, &mut state)?;
                 SlacRequest::CM_MNBC_SOUND_IND
             }
             _ => action, // nothing to be done
         };
 
         Ok(action)
-    }
-
-    // EVSE/PEV -> HPGP Node
-    // PEV-HLE sets the NMK and NID on PEV-PLC using CM_SET_KEY.REQ;
-    // the NMK and NID must match those provided by EVSE-HLE using
-    // CM_SLAC_MATCH.CNF;
-    // The configuration of the low-layer communication module with the
-    // parameters of the logical network may be done with the MMEs
-    // CM_SET_KEY.REQ and CM_SET_KEY.CNF.
-    // Table A.8 from ISO15118-3 defines all the parameters needed and their
-    // value for this call
-    // My Nonce for that STA may remain constant for a run of a protocol),
-    // but a new nonce should be generated for each new protocol run.
-    // This reflects the purpose of nonces to provide a STA with a quantity i
-    // t believes to be freshly generated (to defeat replay attacks) and to
-    // use for association of messages within the protocol run.
-    // Refer to Section 7.10.7.3 for generation of nonces.
-    // The only secure way to remove a STA from an AVLN is to change the NMK
-    pub fn send_set_key_req(&self, state: &mut SessionState) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "SlacSession:send_set_key_req");
-        let nid = self.mk_nid_from_nmk();
-        let nonce: u32 = GetTime::mk_nonce();
-
-        let payload = cglue::cm_set_key_req {
-            key_type: cglue::CM_SET_KEY_REQ_KEY_TYPE_NMK,
-            my_nonce: nonce,
-            your_nonce: 0,
-            pid: cglue::CM_SET_KEY_REQ_PID_HLE,
-            prn: htole16(cglue::CM_SET_KEY_REQ_PRN_UNUSED), // enforce big indian (zero does not need conversion)
-            pmn: cglue::CM_SET_KEY_REQ_PMN_UNUSED,
-            cco_capability: cglue::CM_SET_KEY_REQ_CCO_CAP_NONE,
-            nid: nid,
-            new_eks: cglue::CM_SET_KEY_REQ_PEKS_NMK_KNOWN_TO_STA,
-            new_key: self.config.nmk,
-        };
-
-        payload.send(&self.socket, &ATHEROS_ADDR)?;
-        state.nonce = nonce;
-        state.nid = nid;
-        state.pending= SlacRequest::CM_SLAC_PARAM_REQ;
-        state.timeout= self.config.timeout;
-        state.status= SlacStatus::IDLE;
-
-        Ok(())
-    }
-
-    pub fn send_set_key_cnf(
-        &self,
-        state: &mut SessionState,
-        remote_nonce: u32,
-    ) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "SlacSession:send_set_key_cnf");
-        let nonce: u32 = GetTime::mk_nonce();
-
-        let payload = cglue::cm_set_key_cnf {
-            my_nonce: nonce,
-            your_nonce: remote_nonce,
-            pid: cglue::CM_SET_KEY_REQ_PID_HLE,
-            prn: htole16(cglue::CM_SET_KEY_REQ_PRN_UNUSED), // enforce big indian (zero does not need conversion)
-            pmn: cglue::CM_SET_KEY_REQ_PMN_UNUSED,
-            cco_capability: cglue::CM_SET_KEY_REQ_CCO_CAP_NONE,
-            result: 0,
-            padding: [0; 3],
-        };
-
-        state.pending= SlacRequest::CM_NONE;
-        state.timeout= self.config.timeout;
-        state.status= SlacStatus::IDLE;
-
-        payload.send(&self.socket, &state.pev_addr)?;
-        Ok(())
-    }
-
-    // CM_SLAC_PARAM.CNF
-    pub fn send_slac_param_cnf(&self, state: &mut SessionState) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "SlacSession:send_slac_param_cnf");
-
-        let payload = SlacParmCnf {
-            application_type: state.application_type,
-            security_type: state.security_type,
-            run_id: state.runid.clone(),
-            m_sound_target: state.pev_addr.clone(),
-            num_sounds: SLAC_MSOUNDS,
-            timeout: SLAC_INIT_TIMEOUT,
-            resp_type: cglue::CM_SLAC_PARM_CNF_RESP_TYPE,
-            forwarding_sta: state.pev_addr.clone(),
-        };
-
-        state.pending= SlacRequest::CM_START_ATTENT_IND;
-        state.timeout= SLAC_RESP_TIMEOUT;
-        state.status= SlacStatus::WAITING;
-
-        payload.send(&self.socket, &state.pev_addr)?;
-        Ok(())
-    }
-
-    pub fn send_atten_char(&self, state: &mut SessionState) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "SlacSession:send_atten_char");
-
-        let mut agg_group: SlacGroups = [0 as u8; SLAC_AGGGROUP_LEN];
-        for idx in 0..state.avg_groups as usize {
-            agg_group[idx] = state.avg_attn[idx] as u8;
-        }
-
-        let payload = AttenCharInd {
-            application_type: state.application_type,
-            security_type: state.security_type,
-            run_id: state.runid.clone(),
-            source_address: self.socket.get_ifmac(),
-            source_id: state.pevid.clone(),
-            num_sounds: state.agv_count as u8,
-            resp_id: self.config.evseid.clone(),
-            attenuation_profile: cglue::cm_atten_char_ind__bindgen_ty_1 {
-                num_groups: state.avg_groups,
-                aag: agg_group,
-            },
-        };
-        state.pending= SlacRequest::CM_SLAC_MATCH_CNF;
-        state.timeout= SLAC_RESP_TIMEOUT;
-        state.status= SlacStatus::MATCHED;
-
-        payload.send(&self.socket, &state.pev_addr)?;
-        Ok(())
-    }
-
-    // CM_SLAC_MATCH config to join EVSE logical network
-    pub fn send_slac_match(&self, state: &mut SessionState) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, None, "SlacSession:send_slac_match");
-
-        let payload = SlacMatchCnf {
-            application_type: state.application_type,
-            security_type: state.security_type,
-            run_id: state.runid.clone(),
-            mvf_length: htole16(cglue::CM_SLAC_MATCH_CNF_MVF_LENGTH), // MVF should be little endian
-            pev_id: state.pevid.clone(),
-            pev_mac: state.pev_addr.clone(),
-            evse_id: self.config.evseid.clone(),
-            evse_mac: self.socket.get_ifmac(),
-            _rerserved: [0; 8],
-            nid: state.nid.clone(),
-            _reserved2: 0,
-            nmk: self.config.nmk.clone(),
-        };
-
-        state.pending= SlacRequest::CM_SLAC_MATCH_CNF;
-        state.timeout= SLAC_RESP_TIMEOUT;
-        state.status= SlacStatus::MATCHED;
-
-        payload.send(&self.socket, &state.pev_addr)?;
-        Ok(())
     }
 
     pub fn evse_clear_key(&self, state: &mut SessionState) -> Result<(), AfbError> {
@@ -417,17 +267,16 @@ impl SlacSession {
                     );
                 }
 
-                state.pending = SlacRequest::CM_SLAC_PARAM_REQ;
+                state.pending = SlacRequest::CM_NONE;
                 state.timeout = self.config.timeout;
                 state.stamp = Instant::now();
                 state.status = SlacStatus::WAITING;
-
                 payload.as_slac_payload()?
             }
 
-            //got CM_SLAC_PARAM.REQ reply CM_SLAC_PARAM.CNF
+            // CM_SLAC_PARAM.REQ start SLAC negotiation
             SlacPayload::SlacParmReq(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::SlacParmReq");
+                afb_log_msg!(Notice, None, "SlacPayload::SlacParmReq (CM_SLAC_PARAM.REQ)");
                 self.set_param_req(
                     &mut state,
                     &payload.run_id,
@@ -436,74 +285,19 @@ impl SlacSession {
                 );
 
                 state.pev_addr = msg.ethernet.ether_shost; // let's update vehicle source ether addr
-                state.pending = SlacRequest::CM_MNBC_SOUND_IND;
+                state.pending = SlacRequest::CM_START_ATTENT_IND;
                 state.timeout = self.config.timeout;
                 state.stamp = Instant::now();
                 state.status = SlacStatus::WAITING;
-                self.send_slac_param_cnf(&mut state)?;
+                send_slac_param_cnf(self, &mut state)?;
 
                 payload.as_slac_payload()?
             }
 
-            // CM_MNBC_SOUND.IND (until sound_count or sound_timeout)
-            SlacPayload::MnbcSoundInd(payload) => {
-                // Time specified by the EV for the Characterization has expired
-                // or num of total sounds is >= expected sounds thus, the Atten
-                // data must be grouped and averaged before the loop is
-                // terminated [V2G3-A09-19]
-                afb_log_msg!(Notice, None, "SlacPayload::MnbcSoundInd");
-
-                if !matches!(state.pending, SlacRequest::CM_MNBC_SOUND_IND) {
-                    return afb_error!("session-mnbc-sound", "No sound expected");
-                }
-
-                if slice_equal(&payload.run_id, &state.runid)
-                    || payload.security_type != state.security_type
-                    || payload.application_type != state.application_type
-                {
-                    return afb_error!("session-mnbc-sound", "invalid payload content",);
-                }
-                state.pevid = payload.pevid;
-                let count = payload.remaining_sound_count;
-
-                // We goot enough sound let compute attenuation groups
-                if count == 0 {
-                    for idx in 0..state.avg_groups as usize {
-                        state.avg_attn[idx] = state.avg_attn[idx] / state.agv_count;
-                    }
-                }
-
-                // got all soundings reply with CM_ATTEN_CHAR.IND
-                if count == 0 {
-                    self.send_atten_char(&mut state)?;
-                }
-                payload.as_slac_payload()?
-            }
-
-            // CM_SLAC_MATCH.REQ
-            SlacPayload::SlacMatchReq(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::SlacMatchReq");
-                if slice_equal(&payload.run_id, &state.runid)
-                    || payload.security_type != state.security_type
-                    || payload.application_type != state.application_type
-                {
-                    return afb_error!("session-start-attend-char-ind", "invalid payload content",);
-                }
-
-                // update PEV station identity
-                state.pevid = payload.pev_id;
-                state.pev_addr = payload.pev_mac;
-
-                self.send_slac_match(&mut state)?;
-                payload.as_slac_payload()?
-            }
-
-            // CM_START_ATTEN_CHAR.IND (Broadcast Message)
+            // CM_START_ATTEN_CHAR.IND (Broadcast Message) Announce sounding process start
+            // The full process should finish after 600ms, timer is set at 800ms
             SlacPayload::StartAttentCharInd(payload) => {
-                // As is stated in ISO15118-3, the EV will send 3 consecutive
-                // CM_START_ATTEN_CHAR, regardless if the first one was correctly
-                // received and processed. However, the PLC just forwards 1 to the
-                // application, so we just need to process 1
+                // As is stated in ISO15118-3, the EV will send 3 consecutive as broadcast
                 afb_log_msg!(Notice, None, "SlacPayload::StartAttentCharInd");
                 if slice_equal(&payload.run_id, &state.runid)
                     || payload.resp_type != cglue::CM_SLAC_PARM_CNF_RESP_TYPE
@@ -532,26 +326,47 @@ impl SlacSession {
                 // set by the EV in CM_START_ATTEN_CHAR if ATTEN_RESULTS_TIMEOUT is not None
                 // ??? payload.timeout as u32 * 100
 
+                state.pending = SlacRequest::CM_MNBC_SOUND_IND;
+                state.timeout = cglue::CM_SLAC_PARM_CNF_TIMEOUT as u32;
+                state.stamp = Instant::now();
+                state.status = SlacStatus::WAITING;
+
                 payload.as_slac_payload()? // set session to wait for sound messages
             }
 
-            SlacPayload::AttenCharRsp(payload) => {
-                // response to AttenCharInd
-                afb_log_msg!(Notice, None, "SlacPayload::AttenCharRsp");
+            // CM_MNBC_SOUND.IND (until sound_count or sound_timeout)
+            SlacPayload::MnbcSoundInd(payload) => {
+                // Time specified by the EV for the Characterization has expired
+                // or num of total sounds is >= expected sounds thus, the Atten
+                // data must be grouped and averaged before the loop is
+                // terminated [V2G3-A09-19]
+                afb_log_msg!(
+                    Notice,
+                    None,
+                    "SlacPayload::MnbcSoundInd (CM_MNBC_SOUND.IND)"
+                );
+
+                if !matches!(state.pending, SlacRequest::CM_MNBC_SOUND_IND) {
+                    return afb_error!("session-mnbc-sound", "No sound expected");
+                }
+
                 if slice_equal(&payload.run_id, &state.runid)
                     || payload.security_type != state.security_type
                     || payload.application_type != state.application_type
                 {
-                    return afb_error!("session-atten-char-rsp", "invalid payload content",);
+                    return afb_error!("session-mnbc-sound", "invalid payload content",);
                 }
+                state.pevid = payload.pevid;
 
-                if payload.result != 0 {
-                    return afb_error!("session-atten-char-rsp", "invalid result status",);
+                // state.num_sound is decremented when receiving CM_ATTEN_PROFILE.IND
+                if state.num_sounds == payload.remaining_sound_count - 1 {
+                    return afb_error!("session-mnbc-sound", "invalid counting sequence",);
                 }
 
                 payload.as_slac_payload()?
             }
 
+            // CM_ATTEN_PROFILE.IND individual sounding result
             SlacPayload::AttenProfileInd(payload) => {
                 // The GP specification recommends that the EVSE-HLE set an overall
                 // timer once the cm_start_atten_char message is received and use it
@@ -575,36 +390,100 @@ impl SlacSession {
                 // store the running total of CM_ATTEN_PROFILE.IND.AAG values in
                 // the session variable and compute the average based on actual
                 // number of sounds before returning;
-                afb_log_msg!(Notice, None, "SlacPayload::AttenProfileInd");
+                afb_log_msg!(
+                    Notice,
+                    None,
+                    "SlacPayload::AttenProfileInd (CM_ATTEN_PROFILE.IND)"
+                );
                 if slice_equal(&payload.pev_mac, &state.pev_addr) {
                     return afb_error!("session-attend-profile", "invalid source PEV Mac addr",);
                 }
 
+                state.num_sounds = state.num_sounds - 1;
                 state.agv_count = state.agv_count + 1;
                 state.avg_groups = payload.num_groups;
                 for idx in 0..state.avg_groups as usize {
                     state.avg_attn[idx] = state.avg_attn[idx] + payload.aag[idx] as u32;
                 }
+
+                // got all soundings reply with CM_ATTEN_CHAR.IND
+                if state.num_sounds == 0 {
+                    for idx in 0..state.avg_groups as usize {
+                        state.avg_attn[idx] = state.avg_attn[idx] / state.agv_count;
+                    }
+                    state.pending = SlacRequest::CM_SLAC_MATCH_REQ;
+                    state.timeout = 1;
+                    state.stamp = Instant::now();
+                    send_atten_char_ind(self, &mut state)?;
+                }
+                payload.as_slac_payload()?
+            }
+
+            // CM_ATTEN_CHAR.RSP confirmation for sounding OK/FX
+            SlacPayload::AttenCharRsp(payload) => {
+                afb_log_msg!(Notice, None, "SlacPayload::AttenCharRsp(CM_ATTEN_CHAR.RSP)");
+                if slice_equal(&payload.run_id, &state.runid)
+                    || payload.result != cglue::CM_ATTEN_CHAR_RSP_RESULT
+                    || payload.security_type != state.security_type
+                    || payload.application_type != state.application_type
+                {
+                    return afb_error!("session-start-attend-char-ind", "invalid payload content",);
+                }
+
+                payload.as_slac_payload()? // set session to wait for sound messages
+            }
+
+            // CM_SLAC_MATCH.REQ
+            SlacPayload::SlacMatchReq(payload) => {
+                afb_log_msg!(
+                    Notice,
+                    None,
+                    "SlacPayload::SlacMatchReq (CM_SLAC_MATCH.REQ)"
+                );
+                if slice_equal(&payload.run_id, &state.runid)
+                    || payload.security_type != state.security_type
+                    || payload.application_type != state.application_type
+                {
+                    return afb_error!("session-start-attend-char-ind", "invalid payload content",);
+                }
+
+                // update PEV station identity
+                state.pevid = payload.pev_id;
+                state.pev_addr = payload.pev_mac;
+
+                send_slac_match_cnf(self, &mut state)?;
                 payload.as_slac_payload()?
             }
 
             SlacPayload::SetKeyReq(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::SetKeyReq ignored");
-                return afb_error!("slac-decode-unsupported", "{}", payload);
+                afb_log_msg!(
+                    Notice,
+                    None,
+                    "SlacPayload::SetKeyReq ignored (CM_SET_KEY.REQ)"
+                );
+                return afb_error!("slac-msg-unexpected", "{}", payload);
             }
 
             SlacPayload::SlacMatchCnf(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::SlacMatchCnf ignored");
-                return afb_error!("slac-decode-unsupported", "{}", payload);
+                afb_log_msg!(
+                    Notice,
+                    None,
+                    "SlacPayload::SlacMatchCnf ignored (CM_SLAC_MATCH.CNF)"
+                );
+                return afb_error!("slac-msg-unexpected", "{}", payload);
             }
             SlacPayload::SlacParmCnf(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::SlacParmCnf ignored");
-                return afb_error!("slac-decode-unsupported", "{}", payload);
+                afb_log_msg!(
+                    Notice,
+                    None,
+                    "SlacPayload::SlacParmCnf ignored (CM_SLAC_PARAM.CNF)"
+                );
+                return afb_error!("slac-msg-unexpected", "{}", payload);
             }
 
             SlacPayload::AttenCharInd(payload) => {
                 afb_log_msg!(Notice, None, "SlacPayload::AttenCharInd ignored");
-                return afb_error!("slac-decode-unsupported", "{}", payload);
+                return afb_error!("slac-msg-unexpected", "{}", payload);
             }
         };
 
