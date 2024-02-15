@@ -21,19 +21,6 @@ pub struct ApiConfig {
     pub iec_api: &'static str,
 }
 
-impl AfbApiControls for ApiConfig {
-    fn config(&mut self, api: &AfbApi, jconf: JsoncObj) -> Result<(), AfbError> {
-        afb_log_msg!(Debug, api, "api={} config={}", api.get_uid(), jconf);
-
-        Ok(())
-    }
-
-    // mandatory for downcasting back to custom api data object
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
 // wait until both apis (iso+slac) to be ready before trying event subscription
 struct ApiUserData {
     iec_api: &'static str,

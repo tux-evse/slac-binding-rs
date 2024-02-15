@@ -39,7 +39,7 @@ fn job_clear_key_callback(
     match request {
         SlacAction::Clear => {
             ctx.slac.evse_clear_key(&mut state)?;
-
+            send_set_key_req(&ctx.slac,&mut state)?;
         }
         SlacAction::Check => {
             let mut state = ctx.slac.get_cell()?;
@@ -182,6 +182,7 @@ pub(crate) fn register(
     let slac = Rc::new(SlacSession::new(iface, &config.slac)?);
     let mut state = slac.get_cell()?;
     slac.evse_clear_key(&mut state)?;
+    send_set_key_req(&slac,&mut state)?;
 
     // register dev handler within listening event loop
     AfbEvtFd::new(iface)
