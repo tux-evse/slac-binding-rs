@@ -65,34 +65,21 @@ for FILE in $HOME/.vscode-oss/extensions/vadimcn.vscode-lldb*/lldb/bin/lldb-serv
 ![overview](docs/slac-overview.png)
 [see Synacktiv V2G] [6]
 
-* STATE: JOIN_NETWORK
-  * EVSE -> HPGP node CM_SET_KEY.REQ
-  * HPGP -> EVSE CM_SET_KEY.CNF
-    Set NID from NMK
 
-* STATE: IDLE/WAITING
-  * PEV  -> EVSE CM_SLAC_PARAM.REQ
-  * EVSE -> PEV CM_SLAC_PARAM.CNF
-    * forwarding_stat (mac addr)
-    * num_sound
-    * timeout
+## Simulating target network
 
-* State: SOUNDING/MATCHING
-  * PEV->EVSE CM_MNBC_SOUND.IND (* EVSE requested number of sound)
-  * EVSE -> PEV  CM_ATTEN_CHAR.IND
-  * PEV  -> EVSE CM_ATTEN_CHAR.RSP (msg.result == 0)
-  * PEV  -> EVSE CM_SLAC_MATCH.REQ
+### Without any real hardware equipment
 
-* State: MATCHED
-  * EVSE -> PEV  CM_SLAC_MATCH.CNF
+While simulating full ISO15118 protocols remains complex, Qualcomm open-plc-tools provides
+pev/evse commands to simulate Slac.
 
-## testing with simulator
+Create a fake network and start 'pev' on one side and 'slac-binding-rs' on the other side.
+```
+    Bridge  | vethA <- (evse -i vethA -K)
+    (br0)   | vethB -> slac-binding-rs config.json:{"iface":"vethB"}
+```
 
-### create dummy eth iface
-
-Following script will create a virtual bridge whit two iface (vethA+VethB)
-Any layer2 broadcast packet send on vethA is propagated to vethB
-
+You may use following script to create your fake network
 ```bash
 // create a virtual bridge for vethA & vethB
 sudo ip link add br0 type bridge; \
@@ -106,63 +93,41 @@ for DEV in vethA:peerA vethB:peerB ; do \
   sudo ip link set $DST up; \
   sudo ip link set $DST master br0; \
 done
-# sudo ip link show master br0
-# sudo ip dev dev br0,vethA,...
 ```
 
-Native wireshark debug on interface veth-xx
-
+Wireshark debug on bridge interface
 ```bash
 # if you're not member of wireshark group use su
-su -c  "wireshark -i vethA -k -S"
+su -c  "wireshark -i br0 -k -S"
 ```
 
-Target remote wireshark debug
+### Target remote wireshark debug
+
+When testing with a real car or a Trialog simulator, you should tap ethernet packets
+directly from codico/eth2 on the target. Nevertheless it remains possible to tunnel
+ethernet packets from the target to your desktop to leverage wireshark UI.
 
 ```bash
 ssh root@phytec-power.tuxevse.vpn "tcpdump -s0 -U -n -w - -i eth2" | wireshark -i -
 ```
+WARNING: wireshark require you to be member of 'wireshark' group. If not use su.
 
-## Trace with open-pcl-utils
+### Tapping codico/eth2 and debug natively on desktop
 
-Check wireshark trace within afb_test/trace-logs
+When debugging SLAC/ISO is far more convenient to tunnel directly the full Ethernet/Layer2
+data on your desktop. This allow to source debug indifferently Slac,ISO-2/20,...
+
+Tunneling a physical Ethernet interface require a 'not so simple' configuration. Luckily
+the script located in ./afb-test/etc will address your need. With eth/tunneling you access
+to codico/eth2 directly from your desktop as if you when running slac/iso-bindings on the target.
 
 ```
-[root@phytec-power ~]# evse -i eth2 -K
-evse: UnoccupiedState: Listening ...
-evse: evse_cm_slac_param: <-- CM_SLAC_PARAM.REQ ?
-evse: evse_cm_slac_param: <-- CM_SLAC_PARAM.REQ
-evse: evse_cm_slac_param: --> CM_SLAC_PARAM.CNF
-evse: UnmatchedState: Sounding ...
-evse: evse_cm_start_atten_char: <-- CM_START_ATTEN_CHAR.IND
-evse: evse_cm_start_atten_char: evse_cm_start_atten_char: RESP_TYPE
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (0)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (0)
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (1)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (1)
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (2)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (2)
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (3)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (3)
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (4)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (4)
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (5)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (5)
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (6)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (6)
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (7)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (7)
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (8)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (8)
-evse: evse_cm_mnbc_sound: <-- CM_MNBC_SOUND.IND (9)
-evse: evse_cm_mnbc_sound: <-- CM_ATTEN_PROFILE.IND (9)
-evse: evse_cm_atten_char: --> CM_ATTEN_CHAR.IND
-evse: evse_cm_atten_char: <-- CM_ATTEN_CHAR.RSP
+on target  => sudo ./afb-test/etc/server-eth2-tap.sh
+on desktop => sudo ./afb-test/etc/client-eth2-tap.sh
 ```
 
-WARNING/ on host you need to be member of wireshark group or use su as in previous native case
 
-## Reference
+## References
 
 * [1]: Switch PySlac: <https://github.com/SwitchEV/pyslac>
 * [2]: Pionix SLAC simple library <https://github.com/EVerest/libslac>
