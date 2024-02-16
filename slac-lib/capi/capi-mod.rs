@@ -127,7 +127,7 @@ impl SockRaw {
         let ifmac = if rc < 0 {
             return afb_error!(
                 "slac-sockraw-socket",
-                "Fail to get iface:'{}' mac addr", ethdev
+                "Fail to get mac-addr iface:'{}'", ethdev
             )
         } else {
             let mut macaddr: SlacIfMac = [0; ETHER_ADDR_LEN];
