@@ -263,7 +263,7 @@ impl SlacSession {
                     );
                 }
 
-                state.pending = SlacRequest::CM_NONE;
+                state.pending = SlacRequest::CM_SLAC_PARAM_REQ;
                 state.timeout = self.config.timeout;
                 state.stamp = Instant::now();
                 state.status = SlacStatus::WAITING;

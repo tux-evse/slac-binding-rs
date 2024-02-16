@@ -70,6 +70,6 @@ echo "-- configure bridge and add codico interface:$SLAC_IFACE"
   # ip a a 192.168.29.51/24 dev br0-tun
 
 echo "-- display 'br0-tun' bridge config"
-  ip linkink show master br0-tun
+  ip link show master br0-tun
 
 

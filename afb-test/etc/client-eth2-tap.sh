@@ -31,18 +31,15 @@ mkdir -p $HOME/wg-tap-pki
 cd $HOME/wg-tap-pki
 
 echo "-- clean previous config"
- ip linkink delete wg0-tap 2> /dev/null
- ip linkink delete br0-tun 2> /dev/null
- ip linkink delete gre-tun 2> /dev/null
- ip linkink delete veth-private 2> /dev/null
- ip linkink delete veth-public 2> /dev/null
+ ip link delete wg0-tap 2> /dev/null
+ ip link delete br0-tun 2> /dev/null
+ ip link delete gre-tun 2> /dev/null
+ ip link delete veth-private 2> /dev/null
+ ip link delete veth-public 2> /dev/null
+ rm -f $HOME/wg-tap-pki/*.key
 
-if test ! -f server-public.key; then
-    echo "-- importing public/private keys into $HOME/wg-tap-pki"
-    scp root@$WG_SERVER_IP:wg-tap-pki/client*.key root@$WG_SERVER_IP:wg-tap-pki/server-public.key .
-else
-    echo "reusing wg-pki from $HOME/wg-tap-pki"
-fi
+ echo "-- importing public/private keys into $HOME/wg-tap-pki"
+ scp root@$WG_SERVER_IP:wg-tap-pki/client*.key root@$WG_SERVER_IP:wg-tap-pki/server-public.key .
 
 echo "-- create wireguard network interface"
   ip link a wg0-tap type wireguard
@@ -68,13 +65,18 @@ echo "-- configure bridge and add codico interface:$SLAC_IFACE"
   ip link set gre-tun master br0-tun
 
 echo "--create a virtual interface for slac-binding-rs to listen to"
-  ip linkink add veth-dbg type veth peer name veth-private;
-  ip linkink set veth-private up;
-  ip linkink set veth-dbg up;
-  ip linkink set veth-private master br0-tun;
+  ip link add veth-dbg type veth peer name veth-private;
+  ip link set veth-private up;
+  ip link set veth-dbg up;
+  ip link set veth-private master br0-tun;
+
+# echo "-- set ipv6 local link for veth-dbg"
+#    nmcli con add connection.interface-name veth-dbg type ethernet
+#    nmcli con mod ethernet-veth-dbg ipv6.method link-local
+
 
 echo "-- display 'br0-tun' bridge config"
-  ip linkink show master br0-tun
+  ip link show master br0-tun
 
 echo "-- Start debug session with:"
 echo "# ping 12.12.12.1; # check wireguard VPN connectivity"
