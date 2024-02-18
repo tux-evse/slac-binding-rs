@@ -74,12 +74,18 @@ echo "--create a virtual interface for slac-binding-rs to listen to"
 #    nmcli con add connection.interface-name veth-dbg type ethernet
 #    nmcli con mod ethernet-veth-dbg ipv6.method link-local
 
+echo "-- set [ff02::01] multicast to veth-dbg"
+sudo ip route add multicast ff00::/8 dev veth-dbg table local metric 100
+echo "-- ipv6 [ff02::01] routing to iface: `ip -6 route get ff02::01 | awk '{print $6}'`"
 
-echo "-- display 'br0-tun' bridge config"
-  ip link show master br0-tun
+VETH_IPV6=`ip -6 addr show dev veth-dbg | grep inet6 | awk '{print $2}' | awk -F '/' '{print $1}'`
+echo "-- veth-dbg ipv6: $VETH_IPV6"
+echo "-- check on target: ping -I br0-tun $VETH_IPV6"
 
 echo "-- Start debug session with:"
 echo "# ping 12.12.12.1; # check wireguard VPN connectivity"
 echo "# wireshark -i veth-dbg; # remote monitoring of Codico layer2 traffic"
 echo "# IFACE=veth-dbg afb-test/etc/binding-test-slac.sh; # start SLAC test"
+echo "# ip link show master br0-tun  # display bridged ifaces"
+
 
