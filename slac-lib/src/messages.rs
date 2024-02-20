@@ -734,7 +734,7 @@ pub fn send_set_key_req(session: &SlacSession, state: &mut SessionState) -> Resu
     state.nonce = nonce;
     state.nid = nid;
     state.stamp= Instant::now();
-    state.timeout = session.config.timeout;
+    state.timeout = SLAC_REQ_TIMEOUT;
     state.pending = SlacRequest::CM_SET_KEY_CNF;
     state.status = SlacStatus::WAITING;
 

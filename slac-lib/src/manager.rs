@@ -219,6 +219,11 @@ impl SlacSession {
                             state.status = SlacStatus::UNMATCHED;
                             return afb_error!("session-check-timeout", "slac_match",);
                         }
+                        SlacRequest::CM_SET_KEY_CNF => {
+                            // resent CM_SLAC_PARAM_REQ until we get a response
+                            send_set_key_req(self, &mut state)?;
+                            state.pending
+                        }
                         _ => SlacRequest::CM_NONE, // waiting command as no chaining
                     }
                 } else {
@@ -253,7 +258,7 @@ impl SlacSession {
         let payload = match msg.mime_parse()? {
             //got CM_SET_KEY.CNF store source mac addr
             SlacPayload::SetKeyCnf(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::SetKeyCnf (CM_SET_KEY.CNF)");
+                afb_log_msg!(Notice, None, "get SlacPayload::SetKeyCnf (CM_SET_KEY.CNF)");
 
                 if payload.result != 1 /*bug*/ || payload.your_nonce != state.nonce {
                     return afb_error!(
@@ -273,7 +278,7 @@ impl SlacSession {
 
             // CM_SLAC_PARAM.REQ start SLAC negotiation
             SlacPayload::SlacParmReq(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::SlacParmReq (CM_SLAC_PARAM.REQ)");
+                afb_log_msg!(Notice, None, "get SlacPayload::SlacParmReq (CM_SLAC_PARAM.REQ)");
                 self.set_param_req(
                     &mut state,
                     &payload.run_id,
@@ -355,7 +360,7 @@ impl SlacSession {
                 afb_log_msg!(
                     Notice,
                     None,
-                    "SlacPayload::AttenProfileInd (CM_ATTEN_PROFILE.IND)"
+                    "get SlacPayload::AttenProfileInd (CM_ATTEN_PROFILE.IND)"
                 );
                 if !slice_equal(&payload.pev_mac, &state.pev_addr) {
                     return afb_error!("session-attend-profile", "invalid source PEV Mac addr",);
@@ -440,7 +445,7 @@ impl SlacSession {
                 afb_log_msg!(
                     Notice,
                     None,
-                    "SlacPayload::SlacMatchReq (CM_SLAC_MATCH.REQ)"
+                    "get SlacPayload::SlacMatchReq (CM_SLAC_MATCH.REQ)"
                 );
                 if !slice_equal(&payload.run_id, &state.runid)
                     || payload.security_type != state.security_type
@@ -461,7 +466,7 @@ impl SlacSession {
                 afb_log_msg!(
                     Notice,
                     None,
-                    "SlacPayload::SetKeyReq ignored (CM_SET_KEY.REQ)"
+                    "get SlacPayload::SetKeyReq ignored (CM_SET_KEY.REQ)"
                 );
                 return afb_error!("slac-msg-unexpected", "{}", payload);
             }
@@ -470,7 +475,7 @@ impl SlacSession {
                 afb_log_msg!(
                     Notice,
                     None,
-                    "SlacPayload::SlacMatchCnf ignored (CM_SLAC_MATCH.CNF)"
+                    "get SlacPayload::SlacMatchCnf ignored (CM_SLAC_MATCH.CNF)"
                 );
                 return afb_error!("slac-msg-unexpected", "{}", payload);
             }
@@ -478,13 +483,13 @@ impl SlacSession {
                 afb_log_msg!(
                     Notice,
                     None,
-                    "SlacPayload::SlacParmCnf ignored (CM_SLAC_PARAM.CNF)"
+                    "get SlacPayload::SlacParmCnf ignored (CM_SLAC_PARAM.CNF)"
                 );
                 return afb_error!("slac-msg-unexpected", "{}", payload);
             }
 
             SlacPayload::AttenCharInd(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::AttenCharInd ignored");
+                afb_log_msg!(Notice, None, "get SlacPayload::AttenCharInd ignored");
                 return afb_error!("slac-msg-unexpected", "{}", payload);
             }
         };

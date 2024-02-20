@@ -79,14 +79,14 @@ impl AfbApiControls for TapUserData {
     }
 }
 
-struct PushEvtData {
+struct EvPluginMockData {
     event: &'static AfbEvent,
 }
-AfbVerbRegister!(PushEvtCtrl, push_evt_callback, PushEvtData);
+AfbVerbRegister!(EvPluginMockCtrl, push_evt_callback, EvPluginMockData);
 fn push_evt_callback(
     request: &AfbRequest,
     args: &AfbData,
-    ctx: &mut PushEvtData,
+    ctx: &mut EvPluginMockData,
 ) -> Result<(), AfbError> {
     let connected = args.get::<bool>(0)?;
     ctx.event.push (Iec6185Msg::Plugged(connected));
@@ -147,7 +147,7 @@ pub fn binding_test_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static A
         .set_name("connect")
         .set_info("Mock eic plug/unplug EV")
         .set_usage("true/false")
-        .set_callback(Box::new(PushEvtData {event: eic_event}))
+        .set_callback(Box::new(EvPluginMockData {event: eic_event}))
         .finalize()?;
 
     let subscribe_verb = AfbVerb::new("Eic event subscribe")
