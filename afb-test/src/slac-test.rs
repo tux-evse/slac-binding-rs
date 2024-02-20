@@ -79,12 +79,47 @@ impl AfbApiControls for TapUserData {
     }
 }
 
+struct PushEvtData {
+    event: &'static AfbEvent,
+}
+AfbVerbRegister!(PushEvtCtrl, push_evt_callback, PushEvtData);
+fn push_evt_callback(
+    request: &AfbRequest,
+    args: &AfbData,
+    ctx: &mut PushEvtData,
+) -> Result<(), AfbError> {
+    let connected = args.get::<bool>(0)?;
+    ctx.event.push (Iec6185Msg::Plugged(connected));
+    request.reply(AFB_NO_DATA, 0);
+    Ok(())
+}
+
+struct SubscribeCtx {
+    event: &'static AfbEvent,
+}
+AfbVerbRegister!(SubscribeCtrl, subscribe_callback, SubscribeCtx);
+fn subscribe_callback(
+    request: &AfbRequest,
+    args: &AfbData,
+    ctx: &mut SubscribeCtx,
+) -> Result<(), AfbError> {
+    let subcription = args.get::<bool>(0)?;
+    if subcription {
+        ctx.event.subscribe(request)?;
+    } else {
+        ctx.event.unsubscribe(request)?;
+    }
+    request.reply(AFB_NO_DATA, 0);
+    Ok(())
+}
+
 struct DummyMockCtx {
     label: &'static str,
 }
-AfbVerbRegister!(DummyMockVerb, dummy_request_cb, DummyMockCtx);
-fn dummy_request_cb(rqt: &AfbRequest, _args: &AfbData, ctx: &mut DummyMockCtx) -> Result<(), AfbError> {
-    afb_log_msg!(Notice, rqt, "Api mocking:{}", ctx.label);
+AfbVerbRegister!(GenericMockVerb, dummy_request_cb, DummyMockCtx);
+fn dummy_request_cb(rqt: &AfbRequest, args: &AfbData, ctx: &mut DummyMockCtx) -> Result<(), AfbError> {
+    let status = args.get::<&SlacStatus>(0)?;
+    afb_log_msg!(Notice, rqt, "Afb-Test mocking:{} status:{:?}", ctx.label, status);
     rqt.reply(AFB_NO_DATA, 0);
     Ok(())
 }
@@ -92,6 +127,8 @@ fn dummy_request_cb(rqt: &AfbRequest, _args: &AfbData, ctx: &mut DummyMockCtx) -
 // init callback started at binding load time before any API exist
 // ---------------------------------------------------------------
 pub fn binding_test_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi, AfbError> {
+    am62x_registers()?;
+
     let uid = jconf.get::<&'static str>("uid")?;
     let target = jconf.get::<&'static str>("target")?;
 
@@ -105,14 +142,24 @@ pub fn binding_test_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static A
     // custom type should register once per binder
     slac_registers()?;
 
-    let subscribe_verb = AfbVerb::new("subscribe")
-        .set_info("Mock subscribe api")
-        .set_callback(Box::new(DummyMockVerb {label: "subscribe"}))
+    let eic_event = AfbEvent::new("msg");
+    let event_verb = AfbVerb::new("EV plugin simulation")
+        .set_name("connect")
+        .set_info("Mock eic plug/unplug EV")
+        .set_usage("true/false")
+        .set_callback(Box::new(PushEvtData {event: eic_event}))
+        .finalize()?;
+
+    let subscribe_verb = AfbVerb::new("Eic event subscribe")
+        .set_name("subscribe")
+        .set_info("Mock subscribe eic api")
+        .set_usage("true/false")
+        .set_callback(Box::new(SubscribeCtrl {event: eic_event}))
         .finalize()?;
 
     let slac_verb = AfbVerb::new("slac")
         .set_info("Mock eic/slac api")
-        .set_callback(Box::new(DummyMockVerb {label: "eic/slac"}))
+        .set_callback(Box::new(GenericMockVerb {label: "eic/slac"}))
         .finalize()?;
 
     afb_log_msg!(Notice, rootv4, "slac test uid:{} target:{}", uid, target);
@@ -121,6 +168,8 @@ pub fn binding_test_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static A
         .require_api(target)
         .set_callback(Box::new(tap_config))
         .add_verb(subscribe_verb)
+        .add_verb(event_verb)
+        .add_event(eic_event)
         .add_verb(slac_verb)
         .seal(false)
         .finalize()?;

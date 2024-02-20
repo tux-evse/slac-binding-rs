@@ -12,7 +12,7 @@
             "info": "RUST Slac ISO15118-3",
             "iec_api": "slac-test",
             "iso_itf": "${IFACE}",
-            "timeout": 20,
+            "timeout": 5,
             "timetic": 3
         },
         {
