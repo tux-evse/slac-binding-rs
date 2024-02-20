@@ -18,7 +18,6 @@
                 "-v",
                 "--monitoring",
                 "--trap-faults=0",
-                "--no-httpd",
                 "--config=afb-binding/etc/binder-slac.json",
                 "--config=afb-test/etc/binding-test-slac.json",
             ],

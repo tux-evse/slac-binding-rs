@@ -1,6 +1,8 @@
 {
     "name": "afb-slac-test",
     "monitoring": true,
+    "httpd": true,
+    "port":1234,
     "binding": [
         {
             "uid": "slac-api",

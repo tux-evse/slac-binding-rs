@@ -29,6 +29,7 @@ use afbv4::prelude::*;
 use std::fmt;
 use std::mem;
 use typesv4::prelude::*;
+use std::time::Instant;
 
 // export public types to rust world
 pub const SLAC_NID_LEN: usize = cglue::NID_LEN as usize;
@@ -732,37 +733,11 @@ pub fn send_set_key_req(session: &SlacSession, state: &mut SessionState) -> Resu
     payload.send(&session.socket, &ATHEROS_MAC_ADDR)?;
     state.nonce = nonce;
     state.nid = nid;
-    state.pending = SlacRequest::CM_SLAC_PARAM_REQ;
+    state.stamp= Instant::now();
     state.timeout = session.config.timeout;
-    state.status = SlacStatus::IDLE;
+    state.pending = SlacRequest::CM_SET_KEY_CNF;
+    state.status = SlacStatus::WAITING;
 
-    Ok(())
-}
-
-pub fn send_set_key_cnf(
-    session: &SlacSession,
-    state: &mut SessionState,
-    remote_nonce: u32,
-) -> Result<(), AfbError> {
-    afb_log_msg!(Notice, None, "SlacSession:send_set_key_cnf");
-    let nonce: u32 = GetTime::mk_nonce();
-
-    let payload = cglue::cm_set_key_cnf {
-        my_nonce: nonce,
-        your_nonce: remote_nonce,
-        pid: cglue::CM_SET_KEY_REQ_PID_HLE,
-        prn: htole16(cglue::CM_SET_KEY_REQ_PRN_UNUSED), // enforce big indian (zero does not need conversion)
-        pmn: cglue::CM_SET_KEY_REQ_PMN_UNUSED,
-        cco_capability: cglue::CM_SET_KEY_REQ_CCO_CAP_NONE,
-        result: 0,
-        padding: [0; 3],
-    };
-
-    state.pending = SlacRequest::CM_NONE;
-    state.timeout = session.config.timeout;
-    state.status = SlacStatus::IDLE;
-
-    payload.send(&session.socket, &state.pev_addr)?;
     Ok(())
 }
 
@@ -786,6 +761,7 @@ pub fn send_slac_param_cnf(
 
     state.pending = SlacRequest::CM_START_ATTENT_IND;
     state.timeout = SLAC_RESP_TIMEOUT;
+    state.stamp= Instant::now();
     state.status = SlacStatus::WAITING;
 
     payload.send(&session.socket, &state.pev_addr)?;
@@ -818,6 +794,7 @@ pub fn send_atten_char_ind(
     };
     state.pending = SlacRequest::CM_SLAC_MATCH_REQ;
     state.timeout = SLAC_RESP_TIMEOUT;
+    state.stamp= Instant::now();
     state.status = SlacStatus::MATCHED;
 
     payload.send(&session.socket, &state.pev_addr)?;
@@ -848,6 +825,7 @@ pub fn send_slac_match_cnf(
 
     state.pending = SlacRequest::CM_NONE;
     state.timeout = SLAC_RESP_TIMEOUT;
+    state.stamp= Instant::now();
     state.status = SlacStatus::MATCHED;
 
     payload.send(&session.socket, &state.pev_addr)?;

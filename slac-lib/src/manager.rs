@@ -199,32 +199,33 @@ impl SlacSession {
     pub fn check_pending(&self) -> Result<SlacRequest, AfbError> {
         let mut state = self.get_cell()?;
 
-        let action = if let SlacStatus::WAITING = state.status {
-            let now = Instant::now();
-            let elapse = now.duration_since(state.stamp).as_millis();
-            if elapse > state.timeout as u128 {
-                match state.pending {
-                    SlacRequest::CM_SLAC_PARAM_REQ => {
-                        state.status = SlacStatus::TIMEOUT;
-                        return afb_error!("session-check-timeout", "slac_param",);
-                    }
-                    SlacRequest::CM_MNBC_SOUND_IND => {
-                        for idx in 0..state.avg_groups as usize {
-                            state.avg_attn[idx] = state.avg_attn[idx] / state.agv_count;
+        let action = match state.status {
+            SlacStatus::WAITING => {
+                let now = Instant::now();
+                let elapse = now.duration_since(state.stamp).as_millis();
+                if elapse > state.timeout as u128 {
+                    match state.pending {
+                        SlacRequest::CM_SLAC_PARAM_REQ => {
+                            state.status = SlacStatus::TIMEOUT;
+                            return afb_error!("session-check-timeout", "slac_param",);
                         }
-                        state.pending
+                        SlacRequest::CM_MNBC_SOUND_IND => {
+                            for idx in 0..state.avg_groups as usize {
+                                state.avg_attn[idx] = state.avg_attn[idx] / state.agv_count;
+                            }
+                            state.pending
+                        }
+                        SlacRequest::CM_SLAC_MATCH_REQ => {
+                            state.status = SlacStatus::UNMATCHED;
+                            return afb_error!("session-check-timeout", "slac_match",);
+                        }
+                        _ => SlacRequest::CM_NONE, // waiting command as no chaining
                     }
-                    SlacRequest::CM_SLAC_MATCH_REQ => {
-                        state.status = SlacStatus::UNMATCHED;
-                        return afb_error!("session-check-timeout", "slac_match",);
-                    }
-                    _ => SlacRequest::CM_NONE, // waiting command as no chaining
+                } else {
+                    SlacRequest::CM_NONE // timeout still running wait until next round
                 }
-            } else {
-                SlacRequest::CM_NONE // timeout still running wait until next round
             }
-        } else {
-            SlacRequest::CM_NONE // nothing waiting
+            _ => SlacRequest::CM_NONE, // nothing waiting
         };
 
         // chaining of command should be done after session.state as been freed
@@ -233,7 +234,7 @@ impl SlacSession {
                 send_set_key_req(self, &mut state)?; // retry SET_KEY_REQ
                 SlacRequest::CM_SET_KEY_CNF
             }
-             _ => action, // nothing to be done
+            _ => action, // nothing to be done
         };
 
         Ok(action)
@@ -252,7 +253,7 @@ impl SlacSession {
         let payload = match msg.mime_parse()? {
             //got CM_SET_KEY.CNF store source mac addr
             SlacPayload::SetKeyCnf(payload) => {
-                afb_log_msg!(Notice, None, "SlacPayload::SetKeyCnf");
+                afb_log_msg!(Notice, None, "SlacPayload::SetKeyCnf (CM_SET_KEY.CNF)");
 
                 if payload.result != 1 /*bug*/ || payload.your_nonce != state.nonce {
                     return afb_error!(
@@ -314,7 +315,7 @@ impl SlacSession {
                 }
 
                 // state.num_sound is decremented when receiving CM_ATTEN_PROFILE.IND
-                if state.num_sounds-1 != payload.remaining_sound_count {
+                if state.num_sounds - 1 != payload.remaining_sound_count {
                     return afb_error!("session-mnbc-sound", "invalid counting sequence",);
                 }
 
@@ -373,7 +374,7 @@ impl SlacSession {
                         state.avg_attn[idx] = state.avg_attn[idx] / state.agv_count;
                     }
                     state.pending = SlacRequest::CM_SLAC_MATCH_REQ;
-                    state.timeout = SLAC_MATCH_TIMEOUT*10; // Fulup TBD
+                    state.timeout = SLAC_MATCH_TIMEOUT * 10; // Fulup TBD
                     state.stamp = Instant::now();
                     send_atten_char_ind(self, &mut state)?;
                 }
@@ -419,7 +420,6 @@ impl SlacSession {
 
                 payload.as_slac_payload()? // set session to wait for sound messages
             }
-
 
             // CM_ATTEN_CHAR.RSP confirmation for sounding OK/FX
             SlacPayload::AttenCharRsp(payload) => {

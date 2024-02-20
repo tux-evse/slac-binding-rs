@@ -43,7 +43,6 @@ else
     echo "reusing wg-pki from $HOME/wg-tap-pki"
 fi
 
-
 echo "-- create wireguard network interface"
   ip link a wg0-tap type wireguard
   wg set wg0-tap private-key ./server-private.key
@@ -51,7 +50,7 @@ echo "-- create wireguard network interface"
 
 echo "-- configure wireguard with pki keys"
   ip link set dev wg0-tap up
-  wg set wg0-tap listen-port 51820 peer $(cat client-public.key) allowed-ips 0.0.0.0/0
+  wg set wg0-tap listen-port $WG_PORT peer $(cat client-public.key) allowed-ips 0.0.0.0/0
 
 echo "-- create layer2 tap device"
   modprobe gre
