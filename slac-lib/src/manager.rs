@@ -21,7 +21,7 @@
  */
 
 use sha2::{Digest, Sha256};
-use std::cell::{Ref, RefCell, RefMut};
+use std::sync::{Mutex, MutexGuard};
 use std::mem;
 use std::time::Instant;
 
@@ -59,7 +59,7 @@ pub struct SessionState {
 
 pub struct SlacSession {
     pub config: SessionConfig,
-    pub state: RefCell<SessionState>,
+    pub data_set: Mutex<SessionState>,
     pub socket: SockRaw,
 }
 
@@ -67,7 +67,7 @@ impl SlacSession {
     // Fulup TBD faire une struc SlacConfig
     pub fn new(iface: &'static str, config: &SessionConfig) -> Result<SlacSession, AfbError> {
         // state hold the dynamic data from session
-        let state = RefCell::new(SessionState {
+        let state = Mutex::new(SessionState {
             status: SlacStatus::IDLE,
             stamp: Instant::now(),
             pending: SlacRequest::CM_NONE,
@@ -87,7 +87,7 @@ impl SlacSession {
         });
 
         let session = SlacSession {
-            state: state,
+            data_set: state,
             config: config.clone(),
             socket: SockRaw::open(iface)?,
         };
@@ -161,31 +161,22 @@ impl SlacSession {
         state.security_type = secu_type;
     }
 
-    #[track_caller]
-    pub fn check_state(&self) -> Result<Ref<'_, SessionState>, AfbError> {
-        match self.state.try_borrow() {
-            Err(_) => return afb_error!("slac-mgr-mgr-check-state", "fail to access &state"),
-            Ok(value) => Ok(value),
-        }
-    }
 
     #[track_caller]
-    pub fn get_state(&self) -> Result<RefMut<'_, SessionState>, AfbError> {
-        match self.state.try_borrow_mut() {
-            Err(_) => return afb_error!("slac-mgr-mgr-get-state", "fail to access &mut state"),
-            Ok(value) => Ok(value),
-        }
+    pub fn get_state(&self) -> Result<MutexGuard<'_, SessionState>, AfbError> {
+        let guard = self.data_set.lock().unwrap();
+        Ok(guard)
     }
 
     pub fn get_pending(&self) -> Result<SlacRequest, AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:get_pending");
-        let state = self.check_state()?;
+        let state = self.get_state()?;
         Ok(state.pending)
     }
 
     pub fn get_status(&self) -> Result<SlacStatus, AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:get_status");
-        let state = self.check_state()?;
+        let state = self.get_state()?;
         Ok(state.status)
     }
 
@@ -199,7 +190,7 @@ impl SlacSession {
 
     pub fn get_nid(&self) -> Result<SlacNid, AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:get_nid");
-        let state = self.check_state()?;
+        let state = self.get_state()?;
         Ok(state.nid.clone())
     }
 
