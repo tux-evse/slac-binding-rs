@@ -133,10 +133,12 @@ fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result
         },
         Err(error) => {
             // slac fail let's notify firmware
+            println! ("*** before timeout");
             afb_log_msg!(Debug, timer, "Slac session check:{}", error);
             let session_status = ctx.slac.update_status(SlacStatus::IDLE)?;
             AfbSubCall::call_sync(ctx.rootv4, ctx.iec_api, "slac", session_status)?;
             ctx.event.push(session_status);
+            println! ("*** after timeout");
         }
     }
     Ok(())
