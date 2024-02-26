@@ -35,7 +35,7 @@ fn job_clear_key_callback(
     ctx: &mut JobClearKeyCtx,
 ) -> Result<(), AfbError> {
     let request = ctx.action.get();
-    let mut state = ctx.slac.get_cell()?;
+    let mut state = ctx.slac.get_state()?;
     match request {
         SlacAction::Clear => {
             ctx.slac.evse_clear_key(&mut state)?;
@@ -133,10 +133,10 @@ fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result
         },
         Err(error) => {
             // slac fail let's notify firmware
-            let status = ctx.slac.get_status()?;
+            let session_status = ctx.slac.update_status(SlacStatus::IDLE)?;
             afb_log_msg!(Debug, timer, "Slac session check:{}", error);
-            AfbSubCall::call_sync(ctx.rootv4, ctx.iec_api, "slac", status)?;
-            ctx.event.push(status);
+            AfbSubCall::call_sync(ctx.rootv4, ctx.iec_api, "slac", session_status)?;
+            ctx.event.push(session_status);
         }
     }
     Ok(())
@@ -172,7 +172,7 @@ pub(crate) fn register(
 
     // create afb/slac slac session and exchange keys
     let slac = Rc::new(SlacSession::new(iface, &config.slac)?);
-    let mut state = slac.get_cell()?;
+    let mut state = slac.get_state()?;
     slac.evse_clear_key(&mut state)?;
     send_set_key_req(&slac,&mut state)?;
 

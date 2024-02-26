@@ -133,14 +133,6 @@ impl SlacSession {
         self.config.iface
     }
 
-    #[track_caller]
-    pub fn get_cell(&self) -> Result<RefMut<'_, SessionState>, AfbError> {
-        match self.state.try_borrow_mut() {
-            Err(_) => return afb_error!("sock-client-state", "fail to access &mut data_set"),
-            Ok(value) => Ok(value),
-        }
-    }
-
     pub fn set_waiting(
         &self,
         rqt: SlacRequest,
@@ -148,7 +140,7 @@ impl SlacSession {
         timeout: u32,
     ) -> Result<(), AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:set_waiting");
-        let mut state = self.get_cell()?;
+        let mut state = self.get_state()?;
         state.pending = rqt;
         state.timeout = timeout;
         state.stamp = Instant::now();
@@ -169,35 +161,52 @@ impl SlacSession {
         state.security_type = secu_type;
     }
 
+    #[track_caller]
+    pub fn check_state(&self) -> Result<Ref<'_, SessionState>, AfbError> {
+        match self.state.try_borrow() {
+            Err(_) => return afb_error!("slac-mgr-mgr-check-state", "fail to access &state"),
+            Ok(value) => Ok(value),
+        }
+    }
+
+    #[track_caller]
+    pub fn get_state(&self) -> Result<RefMut<'_, SessionState>, AfbError> {
+        match self.state.try_borrow_mut() {
+            Err(_) => return afb_error!("slac-mgr-mgr-get-state", "fail to access &mut state"),
+            Ok(value) => Ok(value),
+        }
+    }
+
     pub fn get_pending(&self) -> Result<SlacRequest, AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:get_pending");
-
-        match self.state.try_borrow() {
-            Err(_) => afb_error!("session-get-pending", "fail to access state"),
-            Ok(value) => Ok(*Ref::map(value, |t| &t.pending)),
-        }
+        let state = self.check_state()?;
+        Ok(state.pending)
     }
 
     pub fn get_status(&self) -> Result<SlacStatus, AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:get_status");
-        match self.state.try_borrow() {
-            Err(_) => afb_error!("session-get-status", "fail to access state"),
-            Ok(value) => Ok(*Ref::map(value, |t| &t.status)),
-        }
+        let state = self.check_state()?;
+        Ok(state.status)
+    }
+
+    pub fn update_status(&self, status: SlacStatus) -> Result<SlacStatus, AfbError> {
+        afb_log_msg!(Notice, None, "SlacSession:update_status");
+        let mut state = self.get_state()?;
+        let old = state.status;
+        state.status = status;
+        Ok(old)
     }
 
     pub fn get_nid(&self) -> Result<SlacNid, AfbError> {
         afb_log_msg!(Notice, None, "SlacSession:get_nid");
-        match self.state.try_borrow() {
-            Err(_) => afb_error!("session-get-nid", "fail to access state"),
-            Ok(value) => Ok(Ref::map(value, |t| &t.nid).clone()),
-        }
+        let state = self.check_state()?;
+        Ok(state.nid.clone())
     }
 
     // check for pending timeout request
     // Fulup TBD: what should be do when session fail to match ???
     pub fn check_pending(&self) -> Result<SlacRequest, AfbError> {
-        let mut state = self.get_cell()?;
+        let mut state = self.get_state()?;
 
         let action = match state.status {
             SlacStatus::WAITING => {
@@ -207,7 +216,7 @@ impl SlacSession {
                     match state.pending {
                         SlacRequest::CM_SLAC_PARAM_REQ => {
                             state.status = SlacStatus::TIMEOUT;
-                            return afb_error!("session-check-timeout", "slac_param",);
+                            return afb_error!("slac-mgr-check-timeout", "slac_param",);
                         }
                         SlacRequest::CM_MNBC_SOUND_IND => {
                             for idx in 0..state.avg_groups as usize {
@@ -217,7 +226,7 @@ impl SlacSession {
                         }
                         SlacRequest::CM_SLAC_MATCH_REQ => {
                             state.status = SlacStatus::UNMATCHED;
-                            return afb_error!("session-check-timeout", "slac_match",);
+                            return afb_error!("slac-mgr-check-timeout", "slac_match",);
                         }
                         SlacRequest::CM_SET_KEY_CNF => {
                             // resent CM_SLAC_PARAM_REQ until we get a response
@@ -254,7 +263,7 @@ impl SlacSession {
     }
 
     pub fn decode<'a>(&self, msg: &'a SlacRawMsg) -> Result<SlacPayload<'a>, AfbError> {
-        let mut state = self.get_cell()?;
+        let mut state = self.get_state()?;
         let payload = match msg.mime_parse()? {
             //got CM_SET_KEY.CNF store source mac addr
             SlacPayload::SetKeyCnf(payload) => {
@@ -262,7 +271,7 @@ impl SlacSession {
 
                 if payload.result != 1 /*bug*/ || payload.your_nonce != state.nonce {
                     return afb_error!(
-                        "session-set-key-req",
+                        "slac-mgr-set-key-req",
                         "invalid payload result:{}, valid-nonces:{}",
                         payload.result,
                         payload.your_nonce == state.nonce
@@ -278,7 +287,11 @@ impl SlacSession {
 
             // CM_SLAC_PARAM.REQ start SLAC negotiation
             SlacPayload::SlacParmReq(payload) => {
-                afb_log_msg!(Notice, None, "get SlacPayload::SlacParmReq (CM_SLAC_PARAM.REQ)");
+                afb_log_msg!(
+                    Notice,
+                    None,
+                    "get SlacPayload::SlacParmReq (CM_SLAC_PARAM.REQ)"
+                );
                 self.set_param_req(
                     &mut state,
                     &payload.run_id,
@@ -309,19 +322,19 @@ impl SlacSession {
                 );
 
                 if !matches!(state.pending, SlacRequest::CM_MNBC_SOUND_IND) {
-                    return afb_error!("session-mnbc-sound", "No sound expected");
+                    return afb_error!("slac-mgr-mnbc-sound", "No sound expected");
                 }
 
                 if !slice_equal(&payload.run_id, &state.runid)
                     || payload.security_type != state.security_type
                     || payload.application_type != state.application_type
                 {
-                    return afb_error!("session-mnbc-sound", "invalid payload content",);
+                    return afb_error!("slac-mgr-mnbc-sound", "invalid payload content",);
                 }
 
                 // state.num_sound is decremented when receiving CM_ATTEN_PROFILE.IND
                 if state.num_sounds - 1 != payload.remaining_sound_count {
-                    return afb_error!("session-mnbc-sound", "invalid counting sequence",);
+                    return afb_error!("slac-mgr-mnbc-sound", "invalid counting sequence",);
                 }
 
                 state.pevid = payload.pevid;
@@ -363,7 +376,7 @@ impl SlacSession {
                     "get SlacPayload::AttenProfileInd (CM_ATTEN_PROFILE.IND)"
                 );
                 if !slice_equal(&payload.pev_mac, &state.pev_addr) {
-                    return afb_error!("session-attend-profile", "invalid source PEV Mac addr",);
+                    return afb_error!("slac-mgr-attend-profile", "invalid source PEV Mac addr",);
                 }
 
                 state.num_sounds = state.num_sounds - 1;
@@ -396,7 +409,7 @@ impl SlacSession {
                     || payload.security_type != state.security_type
                     || payload.application_type != state.application_type
                 {
-                    return afb_error!("session-start-attend-char-ind", "invalid payload content",);
+                    return afb_error!("slac-mgr-start-attend-char-ind", "invalid payload content",);
                 }
                 state.pev_addr = payload.forwarding_sta;
                 state.num_sounds = payload.num_sounds;
@@ -434,7 +447,7 @@ impl SlacSession {
                     || payload.security_type != state.security_type
                     || payload.application_type != state.application_type
                 {
-                    return afb_error!("session-start-attend-char-ind", "invalid payload content",);
+                    return afb_error!("slac-mgr-start-attend-char-ind", "invalid payload content",);
                 }
 
                 payload.as_slac_payload()? // set session to wait for sound messages
@@ -451,7 +464,7 @@ impl SlacSession {
                     || payload.security_type != state.security_type
                     || payload.application_type != state.application_type
                 {
-                    return afb_error!("session-start-attend-char-ind", "invalid payload content",);
+                    return afb_error!("slac-mgr-start-attend-char-ind", "invalid payload content",);
                 }
 
                 // update PEV station identity
