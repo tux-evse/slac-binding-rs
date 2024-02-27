@@ -161,6 +161,21 @@ fn subscribe_callback(
     Ok(())
 }
 
+struct PushStatusData {
+    event: &'static AfbEvent,
+}
+AfbVerbRegister!(PushStatusCtrl, pushstatus_callback, PushStatusData);
+fn pushstatus_callback(
+    request: &AfbRequest,
+    args: &AfbData,
+    ctx: &mut PushStatusData,
+) -> Result<(), AfbError> {
+    let status = args.get::<&SlacStatus>(0)?;
+    ctx.event.push(status.clone());
+    request.reply(AFB_NO_DATA, 0);
+    Ok(())
+}
+
 pub(crate) fn register(
     rootv4: AfbApiV4,
     api: &mut AfbApi,
@@ -225,8 +240,15 @@ pub(crate) fn register(
         .set_usage("true|false")
         .finalize()?;
 
+    let push_verb = AfbVerb::new("push-status")
+        .set_callback(Box::new(PushStatusCtrl { event }))
+        .set_info("force Slac status push")
+        .set_usage("{'UNMATCHED}")
+        .finalize()?;
+
     // register verb, event & handler into api
     api.add_verb(subscribe);
+    api.add_verb(push_verb);
     api.add_evt_handler(iso_handle);
     api.add_event(event);
 
