@@ -39,12 +39,10 @@ fn job_clear_key_callback(
     match request {
         SlacAction::Clear => {
             ctx.slac.evse_clear_key(&mut state)?;
-            send_set_key_req(&ctx.slac,&mut state)?;
         }
         SlacAction::Check => {
             send_set_key_req(&ctx.slac,&mut state)?;
         }
-
         _ => {}
     }
     Ok(())
@@ -68,9 +66,6 @@ fn evt_iec6185_cb(
         Iec6185Msg::Plugged(connected) => {
             if *connected {
                 ctx.action.set(SlacAction::Check);
-                ctx.job_post.post(0)?;
-            } else {
-                ctx.action.set(SlacAction::Clear);
                 ctx.job_post.post(0)?;
             }
         }
