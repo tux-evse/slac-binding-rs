@@ -217,6 +217,7 @@ impl SlacSession {
                         }
                         SlacRequest::CM_SLAC_MATCH_REQ => {
                             state.status = SlacStatus::UNMATCHED;
+                            state.pending = SlacRequest::CM_NONE;
                             return afb_error!("slac-mgr-check-timeout", "slac_match",);
                         }
                         SlacRequest::CM_SET_KEY_CNF => {
