@@ -246,7 +246,8 @@ impl SlacSession {
         Ok(action)
     }
 
-    pub fn evse_clear_key(&self, state: &mut SessionState) -> Result<(), AfbError> {
+    pub fn evse_clear_key(&self) -> Result<(), AfbError> {
+        let mut state = self.get_state()?;
         afb_log_msg!(Notice, None, "SlacSession:evse_clear_key");
         state.nid = [0; SLAC_NID_LEN];
         state.pending = SlacRequest::CM_NONE;

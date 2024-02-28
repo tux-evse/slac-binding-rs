@@ -9,7 +9,6 @@
  *   http://www.apache.org/licenses/LICENSE-2.0
  *
  */
-use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::prelude::*;
@@ -17,16 +16,8 @@ use afbv4::prelude::*;
 use slac::prelude::*;
 use typesv4::prelude::*;
 
-#[derive(Clone, Copy)]
-enum SlacAction {
-    Check,
-    Clear,
-    None,
-}
-
 struct JobClearKeyCtx {
     slac: Rc<SlacSession>,
-    action: Rc<Cell<SlacAction>>,
 }
 AfbJobRegister!(JobClearKeyCtrl, job_clear_key_callback, JobClearKeyCtx);
 fn job_clear_key_callback(
@@ -34,23 +25,13 @@ fn job_clear_key_callback(
     _signal: i32,
     ctx: &mut JobClearKeyCtx,
 ) -> Result<(), AfbError> {
-    let request = ctx.action.get();
     let mut state = ctx.slac.get_state()?;
-    match request {
-        SlacAction::Clear => {
-            ctx.slac.evse_clear_key(&mut state)?;
-        }
-        SlacAction::Check => {
-            send_set_key_req(&ctx.slac,&mut state)?;
-        }
-        _ => {}
-    }
+    send_set_key_req(&ctx.slac, &mut state)?;
     Ok(())
 }
 
 struct IecEvtCtx {
     job_post: &'static AfbSchedJob,
-    action: Rc<Cell<SlacAction>>,
 }
 
 AfbEventRegister!(IsoEvtVerb, evt_iec6185_cb, IecEvtCtx);
@@ -65,7 +46,6 @@ fn evt_iec6185_cb(
     match iecmsg {
         Iec6185Msg::Plugged(connected) => {
             if *connected {
-                ctx.action.set(SlacAction::Check);
                 ctx.job_post.post(0)?;
             }
         }
@@ -182,9 +162,7 @@ pub(crate) fn register(
 
     // create afb/slac slac session and exchange keys
     let slac = Rc::new(SlacSession::new(iface, &config.slac)?);
-    let mut state = slac.get_state()?;
-    slac.evse_clear_key(&mut state)?;
-    send_set_key_req(&slac,&mut state)?;
+    slac.evse_clear_key()?;
 
     // register dev handler within listening event loop
     AfbEvtFd::new(iface)
@@ -208,14 +186,11 @@ pub(crate) fn register(
         }))
         .start()?;
 
-    // share slac request from event to async callback
-    let action = Rc::new(Cell::new(SlacAction::None));
 
     let job_post = AfbSchedJob::new("iec6185-job")
         .set_exec_watchdog(2) // limit exec time to 200ms;
         .set_callback(Box::new(JobClearKeyCtx {
             slac: slac.clone(),
-            action: action.clone(),
         }))
         .finalize();
 
@@ -225,7 +200,6 @@ pub(crate) fn register(
         .set_pattern(to_static_str(format!("{}/*", config.iec_api)))
         .set_callback(Box::new(IecEvtCtx {
             job_post,
-            action: action.clone(),
         }))
         .finalize()?;
 
