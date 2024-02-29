@@ -23,6 +23,7 @@ AfbJobRegister!(JobClearKeyCtrl, job_clear_key_callback, JobClearKeyCtx);
 fn job_clear_key_callback(
     _job: &AfbSchedJob,
     _signal: i32,
+    _data: &AfbSchedData,
     ctx: &mut JobClearKeyCtx,
 ) -> Result<(), AfbError> {
     let mut state = ctx.slac.get_state()?;
@@ -46,7 +47,7 @@ fn evt_iec6185_cb(
     match iecmsg {
         Iec6185Msg::Plugged(connected) => {
             if *connected {
-                ctx.job_post.post(0)?;
+                ctx.job_post.post(0, AFB_NO_DATA)?;
             }
         }
         _ => {}
