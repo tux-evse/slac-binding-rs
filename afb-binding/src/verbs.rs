@@ -19,13 +19,14 @@ use typesv4::prelude::*;
 struct JobClearKeyCtx {
     slac: Rc<SlacSession>,
 }
-AfbJobRegister!(JobClearKeyCtrl, job_clear_key_callback, JobClearKeyCtx);
+
 fn job_clear_key_callback(
     _job: &AfbSchedJob,
     _signal: i32,
-    _data: &AfbSchedData,
-    ctx: &mut JobClearKeyCtx,
+    _args: &AfbCtxData,
+    ctx_data: &AfbCtxData,
 ) -> Result<(), AfbError> {
+    let ctx = ctx_data.get_ref::<JobClearKeyCtx>()?;
     let mut state = ctx.slac.get_state()?;
     send_set_key_req(&ctx.slac, &mut state)?;
     Ok(())
@@ -35,12 +36,12 @@ struct IecEvtCtx {
     job_post: &'static AfbSchedJob,
 }
 
-AfbEventRegister!(IsoEvtVerb, evt_iec6185_cb, IecEvtCtx);
 fn evt_iec6185_cb(
     event: &AfbEventMsg,
-    args: &AfbData,
-    ctx: &mut IecEvtCtx,
+    args: &AfbRqtData,
+    ctx_data: &AfbCtxData,
 ) -> Result<(), AfbError> {
+    let ctx = ctx_data.get_ref::<IecEvtCtx>()?;
     // ignore any event other than plug status
     let iecmsg = args.get::<&Iec6185Msg>(0)?;
     afb_log_msg!(Debug, event, "{:?}", iecmsg);
@@ -60,8 +61,9 @@ struct AsyncFdCtx {
     slac: Rc<SlacSession>,
     event: &'static AfbEvent,
 }
-AfbEvtFdRegister!(SessionAsyncCtrl, async_session_cb, AsyncFdCtx);
-fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &mut AsyncFdCtx) -> Result<(), AfbError> {
+
+fn async_session_cb(_evtfd: &AfbEvtFd, revent: u32, ctx_data: &AfbCtxData) -> Result<(), AfbError> {
+    let ctx = ctx_data.get_ref::<AsyncFdCtx>()?;
     if revent == AfbEvtFdPoll::IN.bits() {
         use std::mem::MaybeUninit;
         let message = MaybeUninit::<SlacRawMsg>::uninit();
@@ -92,8 +94,8 @@ struct TimerCtx {
     iec_api: &'static str,
 }
 // timer sessions maintain pending sessions when needed
-AfbTimerRegister!(TimerCtrl, timer_callback, TimerCtx);
-fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result<(), AfbError> {
+fn timer_callback(timer: &AfbTimer, _decount: u32, ctx_data: &AfbCtxData) -> Result<(), AfbError> {
+    let ctx = ctx_data.get_ref::<TimerCtx>()?;
     match ctx.slac.check_pending() {
         Ok(next) => match next {
             SlacRequest::CM_NONE => { /*ignore*/ }
@@ -121,12 +123,13 @@ fn timer_callback(timer: &AfbTimer, _decount: u32, ctx: &mut TimerCtx) -> Result
 struct SubscribeData {
     event: &'static AfbEvent,
 }
-AfbVerbRegister!(SubscribeCtrl, subscribe_callback, SubscribeData);
+
 fn subscribe_callback(
     request: &AfbRequest,
-    args: &AfbData,
-    ctx: &mut SubscribeData,
+    args: &AfbRqtData,
+    ctx_data: &AfbCtxData,
 ) -> Result<(), AfbError> {
+    let ctx = ctx_data.get_ref::<SubscribeData>()?;
     let subcription = args.get::<bool>(0)?;
     if subcription {
         ctx.event.subscribe(request)?;
@@ -140,12 +143,13 @@ fn subscribe_callback(
 struct PushStatusData {
     event: &'static AfbEvent,
 }
-AfbVerbRegister!(PushStatusCtrl, pushstatus_callback, PushStatusData);
+
 fn pushstatus_callback(
     request: &AfbRequest,
-    args: &AfbData,
-    ctx: &mut PushStatusData,
+    args: &AfbRqtData,
+    ctx_data: &AfbCtxData,
 ) -> Result<(), AfbError> {
+    let ctx = ctx_data.get_ref::<PushStatusData>()?;
     let status = args.get::<&SlacStatus>(0)?;
     ctx.event.push(status.clone());
     request.reply(AFB_NO_DATA, 0);
@@ -169,49 +173,55 @@ pub(crate) fn register(
     AfbEvtFd::new(iface)
         .set_fd(slac.get_sock().get_sockfd())
         .set_events(AfbEvtFdPoll::IN)
-        .set_callback(Box::new(AsyncFdCtx {
+        .set_callback(async_session_cb)
+        .set_context(AsyncFdCtx {
             slac: slac.clone(),
             event,
-        }))
+        })
         .start()?;
 
     // slac timer check for pending request and clean them up when needed
     AfbTimer::new(config.uid)
         .set_period(config.slac.timetic)
         .set_decount(0)
-        .set_callback(Box::new(TimerCtx {
+        .set_callback(timer_callback)
+        .set_context(TimerCtx {
             slac: slac.clone(),
             event,
             rootv4,
             iec_api: config.iec_api,
-        }))
+        })
         .start()?;
 
 
     let job_post = AfbSchedJob::new("iec6185-job")
         .set_exec_watchdog(2) // limit exec time to 200ms;
-        .set_callback(Box::new(JobClearKeyCtx {
+        .set_callback(job_clear_key_callback)
+        .set_context(JobClearKeyCtx {
             slac: slac.clone(),
-        }))
+        })
         .finalize();
 
     // finally subscribe to iec6185 events
     let iso_handle = AfbEvtHandler::new("iec6185-evt")
         .set_info("iec6185 event from ti-am62x binding")
         .set_pattern(to_static_str(format!("{}/*", config.iec_api)))
-        .set_callback(Box::new(IecEvtCtx {
+        .set_callback(evt_iec6185_cb)
+        .set_context(IecEvtCtx {
             job_post,
-        }))
+        })
         .finalize()?;
 
     let subscribe = AfbVerb::new("subscribe")
-        .set_callback(Box::new(SubscribeCtrl { event }))
+        .set_callback(subscribe_callback)
+        .set_context(SubscribeData { event })
         .set_info("subscribe Iec6185 event")
         .set_usage("true|false")
         .finalize()?;
 
     let push_verb = AfbVerb::new("push-status")
-        .set_callback(Box::new(PushStatusCtrl { event }))
+        .set_callback(pushstatus_callback)
+        .set_context(PushStatusData { event })
         .set_info("force Slac status push")
         .set_usage("{'UNMATCHED}")
         .finalize()?;
