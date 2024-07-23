@@ -63,6 +63,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     if value.len() != SLAC_STATID_LEN {
         return Err(AfbError::new(
             "binding-slac-config",
+            -1,
             format!(
                 "Invalid evseid len (should be {} Byte not {}",
                 SLAC_STATID_LEN,
