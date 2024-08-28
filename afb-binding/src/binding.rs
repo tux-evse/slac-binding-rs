@@ -113,7 +113,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     };
 
     if let Ok(value) = jconf.get::<i32>("verbosity") {
-        api.set_verbosity(value);
+        api.set_verbosity(value)?;
     };
 
     // freeze & activate api
